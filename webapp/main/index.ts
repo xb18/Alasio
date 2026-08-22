@@ -15,6 +15,23 @@ app.commandLine.appendSwitch("no-sandbox");
 app.commandLine.appendSwitch("disable-http-cache");
 app.commandLine.appendSwitch("no-proxy-server");
 
+// Load the deploy config synchronously before app ready: the dpi scaling
+// preference must be applied as a Chromium command-line switch
+// (force-device-scale-factor), which only takes effect when appended
+// before app ready. loadConfig() is pure node code (path/fs/yaml) and
+// touches no electron API, so calling it at module level is safe. The
+// loaded values (lang/theme/backend host/port) are then consumed in the
+// ready handler below; on failure only appState.configError is set and
+// the error page is shown.
+loadConfig();
+// Dpi scaling only affects the electron window through its startup
+// parameters: true (default) follows the system DPI scaling (no switch),
+// false forces scale factor 1 so the window renders at 100%. Changes to
+// the preference therefore apply on the next launch.
+if (!appState.dpiScaling) {
+  app.commandLine.appendSwitch("force-device-scale-factor", "1");
+}
+
 // Single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -34,9 +51,10 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(async () => {
-    // Load configuration into the AppState singleton. On failure only
-    // appState.configError is set and the error page is shown below.
-    loadConfig();
+    // The config was already loaded at module level (before app ready)
+    // so the dpi scaling could be applied as a Chromium command-line
+    // switch. On failure only appState.configError is set and the error
+    // page is shown below.
     // Register the nativeTheme listener and derive the initial display
     // values (must happen after app ready).
     appState.init();

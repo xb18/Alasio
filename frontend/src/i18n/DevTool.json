@@ -70,11 +70,11 @@
     "es-ES": "Escala DPI"
   },
   "DpiScalingHelp": {
-    "en-US": "Only available in the Electron app",
-    "zh-CN": "仅在 Electron 应用中可用",
-    "ja-JP": "Electron アプリでのみ利用可能",
-    "zh-TW": "僅在 Electron 應用程式中可用",
-    "es-ES": "Solo disponible en la aplicación Electron"
+    "en-US": "Only available in the Electron app. Takes effect after restarting the app",
+    "zh-CN": "仅在 Electron 应用中可用，重启应用后生效",
+    "ja-JP": "Electron アプリでのみ利用可能です。アプリを再起動すると有効になります",
+    "zh-TW": "僅在 Electron 應用程式中可用，重新啟動應用程式後生效",
+    "es-ES": "Solo disponible en la aplicación Electron. Se aplica al reiniciar la aplicación"
   },
   "RestartBackend": {
     "en-US": "Restart Backend",

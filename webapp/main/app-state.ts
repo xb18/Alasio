@@ -52,6 +52,11 @@ class AppState {
   // into deploy.yaml through the stdin contract)
   configLang: ConfigLang = "system";
   configTheme: ConfigTheme = "system";
+  // Host-level dpi scaling: a single value (true = follow the system DPI
+  // scaling, false = force scale factor 1), no config/display split. It
+  // only takes effect through the electron startup command-line switch
+  // (force-device-scale-factor), so changes apply on the next launch.
+  dpiScaling = true;
   // Derived display values (always concrete)
   displayLang: string = DEFAULT_LANG;
   displayTheme: "light" | "dark" = "light";
@@ -108,14 +113,30 @@ class AppState {
   }
 
   /**
+   * Set the persistent dpi scaling (true = follow the system DPI scaling,
+   * false = force scale factor 1). Unlike language/theme there is a
+   * single value, no derived display value. Same flow as setLang/setTheme:
+   * no-op on identical value, broadcast to the backend, notify listeners.
+   */
+  setDpiScaling(dpiScaling: boolean): void {
+    if (typeof dpiScaling !== "boolean") return;
+    if (dpiScaling === this.dpiScaling) return;
+    this.dpiScaling = dpiScaling;
+    this.broadcastPrefs();
+    this.notify();
+  }
+
+  /**
    * Push the current config values to the backend through the stdin
-   * contract (command:set_lang:{configLang} + command:set_theme:{configTheme}).
-   * Called after the backend is ready and after every change; the backend
-   * persists idempotently (no write when the value already matches).
+   * contract (command:set_lang:{configLang} + command:set_theme:{configTheme}
+   * + command:set_dpi_scaling:{dpiScaling}). Called after the backend is
+   * ready and after every change; the backend persists idempotently (no
+   * write when the value already matches).
    */
   broadcastPrefs(): void {
     sendStdinCommand(`command:set_lang:${this.configLang}`);
     sendStdinCommand(`command:set_theme:${this.configTheme}`);
+    sendStdinCommand(`command:set_dpi_scaling:${this.dpiScaling}`);
   }
 
   private applyAndBroadcast(): void {

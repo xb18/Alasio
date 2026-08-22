@@ -8,6 +8,7 @@ export const IPC_WINDOW_MAXIMIZE = "window:maximize";
 export const IPC_WINDOW_HIDE = "window:hide";
 export const IPC_SHARED_STATE_SET_LANGUAGE = "shared-state:set-language";
 export const IPC_SHARED_STATE_SET_THEME = "shared-state:set-theme";
+export const IPC_SHARED_STATE_SET_DPI_SCALING = "shared-state:set-dpi-scaling";
 
 // Renderer -> Main, request/response (ipcRenderer.invoke / ipcMain.handle)
 export const IPC_WINDOW_CONFIRM_CLOSE = "window:confirm-close";

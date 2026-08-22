@@ -14,6 +14,7 @@ interface DeployConfig {
   Webapp?: {
     Lang?: string;
     Theme?: string;
+    DpiScaling?: boolean;
   };
 }
 
@@ -155,6 +156,10 @@ export function loadConfig(): void {
   const theme = config.Webapp?.Theme;
   if (theme && isConfigTheme(theme)) {
     appState.configTheme = theme;
+  }
+  const dpiScaling = config.Webapp?.DpiScaling;
+  if (typeof dpiScaling === "boolean") {
+    appState.dpiScaling = dpiScaling;
   }
   appState.configError = undefined;
 }

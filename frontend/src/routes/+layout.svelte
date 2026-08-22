@@ -3,6 +3,16 @@
   import { Toaster } from "$lib/components/ui/sonner";
   import { ModeWatcher } from "mode-watcher";
   import { isElectronSession } from "$lib/use/useElectronEnv.svelte";
+  // Side-effect imports: register the alasio:* downlink listeners at app
+  // startup, before the alasio:ready handshake below triggers the host
+  // re-send. Relying on implicit loading (i18n via the global t proxy,
+  // theme via the header theme-toggle, dpi via the lazily loaded dev
+  // settings page) would make the registration timing fragile — a
+  // listener registered after the handshake re-send loses the host value
+  // forever (the dpi checkbox once kept its default checked state).
+  import "$lib/i18n/state.svelte";
+  import "$lib/theme/state.svelte";
+  import "$lib/dpi/state.svelte";
   import "../app.css";
 
   let { children } = $props();

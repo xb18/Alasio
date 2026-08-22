@@ -41,7 +41,8 @@
   // The lang message also carries the host config value so the frontend's
   // configLang converges with the host (its own guess from cookie/browser
   // may differ on first run). Sending the same value again is harmless:
-  // the frontend no-ops on identical values.
+  // the frontend no-ops on identical values. Dpi scaling has a single
+  // value (no config/display split) and is sent as-is.
   function sendDownlink() {
     const frame = iframe;
     if (!frame?.contentWindow) return;
@@ -51,6 +52,7 @@
       origin,
     );
     frame.contentWindow.postMessage({ type: "alasio:theme", theme: sharedState.displayTheme }, origin);
+    frame.contentWindow.postMessage({ type: "alasio:dpi-scaling", dpiScaling: sharedState.dpiScaling }, origin);
   }
 
   // Send whenever the display values change after the iframe finished
@@ -89,6 +91,8 @@
         window.electronAPI.setLanguage(data.lang);
       } else if (data.type === "alasio:theme" && typeof data.theme === "string") {
         window.electronAPI.setTheme(data.theme);
+      } else if (data.type === "alasio:dpi-scaling" && typeof data.dpiScaling === "boolean") {
+        window.electronAPI.setDpiScaling(data.dpiScaling);
       } else if (data.type === "alasio:ready") {
         // Handshake from the embedded frontend: it finished starting and
         // registered its listeners. The load-event downlink may have been

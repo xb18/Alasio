@@ -9,7 +9,7 @@ def mpipe_recv_loop(conn, trio_token):
         conn (PipeConnection):
         trio_token:
     """
-    from alasio.backend.prefs import handle_stdin_set_lang, handle_stdin_set_theme
+    from alasio.backend.prefs import handle_stdin_set_dpi_scaling, handle_stdin_set_lang, handle_stdin_set_theme
     from alasio.logger import logger
     while 1:
         try:
@@ -32,6 +32,11 @@ def mpipe_recv_loop(conn, trio_token):
             # Host-level webapp theme from the stdin contract.
             theme = msg.split(b':', 2)[2].decode()
             handle_stdin_set_theme(theme)
+        elif msg.startswith(b'command:set_dpi_scaling:'):
+            # Host-level webapp dpi scaling from the stdin contract. A
+            # single value ('true'/'false'), no config/display split.
+            dpi_scaling = msg.split(b':', 2)[2].decode()
+            handle_stdin_set_dpi_scaling(dpi_scaling)
         else:
             logger.warning(f'Backend received unknown msg from supervisor: {msg}')
 

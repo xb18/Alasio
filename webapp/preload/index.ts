@@ -6,6 +6,7 @@ import {
   IPC_CONFIRM_CLOSE,
   IPC_SHARED_STATE_GET,
   IPC_SHARED_STATE_GET_SYNC,
+  IPC_SHARED_STATE_SET_DPI_SCALING,
   IPC_SHARED_STATE_SET_LANGUAGE,
   IPC_SHARED_STATE_SET_THEME,
   IPC_SHARED_STATE_UPDATE,
@@ -59,6 +60,7 @@ const api = {
   },
   setLanguage: (lang: string) => ipcRenderer.send(IPC_SHARED_STATE_SET_LANGUAGE, lang),
   setTheme: (theme: string) => ipcRenderer.send(IPC_SHARED_STATE_SET_THEME, theme),
+  setDpiScaling: (dpiScaling: boolean) => ipcRenderer.send(IPC_SHARED_STATE_SET_DPI_SCALING, dpiScaling),
 
   // Backend lifecycle
   startBackend: () => ipcRenderer.invoke(IPC_BACKEND_START),

@@ -64,6 +64,9 @@ export function useSharedState() {
     get configTheme() {
       return state?.configTheme || "system";
     },
+    get dpiScaling() {
+      return state?.dpiScaling ?? true;
+    },
     get backendPort() {
       return state?.backendPort || 22267;
     },

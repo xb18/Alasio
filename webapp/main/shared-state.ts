@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow } from "electron";
 import {
   IPC_SHARED_STATE_GET,
   IPC_SHARED_STATE_GET_SYNC,
+  IPC_SHARED_STATE_SET_DPI_SCALING,
   IPC_SHARED_STATE_SET_LANGUAGE,
   IPC_SHARED_STATE_SET_THEME,
   IPC_SHARED_STATE_UPDATE,
@@ -18,6 +19,8 @@ interface SharedState {
   // Config values (persistent, may be 'system')
   configLang: string;
   configTheme: string;
+  // Host-level dpi scaling (single value, no config/display split)
+  dpiScaling: boolean;
   backendPort: number;
   route: RouteType;
   isFirstTimeSetup: boolean;
@@ -29,6 +32,7 @@ const state: SharedState = {
   theme: "light",
   configLang: "system",
   configTheme: "system",
+  dpiScaling: true,
   backendPort: 22267,
   route: "loading",
   isFirstTimeSetup: false,
@@ -70,6 +74,14 @@ export function setTheme(theme: string) {
   appState.setTheme(theme);
 }
 
+/**
+ * Set the persistent dpi scaling through the AppState singleton, which
+ * is the single source of truth. Same flow as setLanguage/setTheme.
+ */
+export function setDpiScaling(dpiScaling: boolean) {
+  appState.setDpiScaling(dpiScaling);
+}
+
 export function getState(): SharedState {
   return { ...state };
 }
@@ -79,6 +91,7 @@ function syncState() {
   state.theme = appState.displayTheme;
   state.configLang = appState.configLang;
   state.configTheme = appState.configTheme;
+  state.dpiScaling = appState.dpiScaling;
 }
 
 function notifyRenderer() {
@@ -103,6 +116,10 @@ export function setupSharedStateIPC() {
 
   ipcMain.on(IPC_SHARED_STATE_SET_THEME, (_, theme: string) => {
     setTheme(theme);
+  });
+
+  ipcMain.on(IPC_SHARED_STATE_SET_DPI_SCALING, (_, dpiScaling: boolean) => {
+    setDpiScaling(dpiScaling);
   });
 }
 

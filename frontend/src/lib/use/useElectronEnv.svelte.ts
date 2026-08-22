@@ -70,7 +70,11 @@ if (isElectronSession) {
 window.addEventListener("message", (event: MessageEvent) => {
   if (event.source !== window.parent) return;
   const data = event.data;
-  if (data && typeof data === "object" && (data.type === "alasio:lang" || data.type === "alasio:theme")) {
+  if (
+    data &&
+    typeof data === "object" &&
+    (data.type === "alasio:lang" || data.type === "alasio:theme" || data.type === "alasio:dpi-scaling")
+  ) {
     isElectron.value = true;
   }
 });

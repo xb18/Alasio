@@ -5,12 +5,14 @@
   import ThemeToggle from "$lib/components/ui/theme/theme-toggle.svelte";
   import LangSelector from "$lib/i18n/LangSelector.svelte";
   import { t } from "$lib/i18n";
+  import { dpiState, setDpiScaling } from "$lib/dpi/state.svelte";
   import { isElectron } from "$lib/use/useElectronEnv.svelte";
 
-  // dpiScaling is display-only for now: the real scaling is applied by the
-  // host (electron main process), so the checkbox keeps a local value and is
-  // disabled outside an embedded (electron) session.
-  let dpiScaling = $state(false);
+  // dpiScaling mirrors the host value (webapp main AppState) through the
+  // alasio:dpi-scaling downlink/uplink; the real scaling is applied by the
+  // electron startup parameters, so a change takes effect on the next
+  // launch. Outside an embedded (electron) session the checkbox is
+  // disabled (remote browsers have no host to apply the value).
 
   // $derived so name/help follow the current display language
   const langData = $derived.by<ArgData>(() => ({
@@ -36,7 +38,7 @@
     group: "SystemTool",
     arg: "DpiScaling",
     dt: "static",
-    value: dpiScaling,
+    value: dpiState.value,
     name: t.DevTool.DpiScaling(),
     help: t.DevTool.DpiScalingHelp(),
   }));
@@ -64,7 +66,13 @@
 <div class="flex flex-col gap-y-1.5">
   <LayoutHorizontalLike data={dpiData}>
     {#snippet InputSnippet()}
-      <Checkbox bind:checked={dpiScaling} disabled={!isElectron.value} class="size-4.5" iconStrokeWidth={3.5} />
+      <Checkbox
+        checked={dpiState.value}
+        onCheckedChange={(checked) => setDpiScaling(checked === true)}
+        disabled={!isElectron.value}
+        class="size-4.5"
+        iconStrokeWidth={3.5}
+      />
     {/snippet}
   </LayoutHorizontalLike>
 </div>

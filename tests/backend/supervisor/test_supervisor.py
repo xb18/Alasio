@@ -213,15 +213,15 @@ class TestStdinPrefsCommands:
     @staticmethod
     def _read_webapp():
         """
-        Read Webapp.Lang / Webapp.Theme from deploy.yaml
+        Read Webapp.Lang / Webapp.Theme / Webapp.DpiScaling from deploy.yaml
 
         Returns:
-            tuple[str, str]: (lang, theme)
+            tuple: (lang, theme, dpi_scaling)
         """
         with open(DEPLOY_YAML, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f) or {}
         webapp = data.get('Webapp', {}) or {}
-        return webapp.get('Lang', 'system'), webapp.get('Theme', 'system')
+        return webapp.get('Lang', 'system'), webapp.get('Theme', 'system'), webapp.get('DpiScaling', True)
 
     @staticmethod
     def _wait_for_lang(expected, timeout=10):
@@ -234,21 +234,39 @@ class TestStdinPrefsCommands:
         """
         deadline = time.time() + timeout
         while time.time() < deadline:
-            lang, _ = TestStdinPrefsCommands._read_webapp()
+            lang, _, _ = TestStdinPrefsCommands._read_webapp()
             if lang == expected:
                 return
             time.sleep(0.05)
         raise AssertionError(f'timeout waiting for Webapp.Lang == {expected}')
 
     @staticmethod
-    def _restore_prefs(lang, theme):
+    def _wait_for_dpi_scaling(expected, timeout=10):
         """
-        Restore Webapp.Lang/Theme through a fresh prefs backend so the
-        yaml keeps its comments (YamlConfig write path)
+        Wait until Webapp.DpiScaling equals expected
+
+        Args:
+            expected (bool):
+            timeout (float): Seconds
+        """
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            _, _, dpi_scaling = TestStdinPrefsCommands._read_webapp()
+            if dpi_scaling == expected:
+                return
+            time.sleep(0.05)
+        raise AssertionError(f'timeout waiting for Webapp.DpiScaling == {expected}')
+
+    @staticmethod
+    def _restore_prefs(lang, theme, dpi_scaling):
+        """
+        Restore Webapp.Lang/Theme/DpiScaling through a fresh prefs backend
+        so the yaml keeps its comments (YamlConfig write path)
 
         Args:
             lang (str):
             theme (str):
+            dpi_scaling (bool):
         """
         with create_supervisor_process("prefs") as proc:
             proc.wait_for_output("startup successful", timeout=10)
@@ -257,6 +275,9 @@ class TestStdinPrefsCommands:
             TestStdinPrefsCommands._wait_for_lang(lang)
             proc.process.stdin.write(f'command:set_theme:{theme}\n')
             proc.process.stdin.flush()
+            proc.process.stdin.write(f'command:set_dpi_scaling:{str(dpi_scaling).lower()}\n')
+            proc.process.stdin.flush()
+            TestStdinPrefsCommands._wait_for_dpi_scaling(dpi_scaling)
             proc.process.stdin.write('command:stop\n')
             proc.process.stdin.flush()
             proc.wait_for_exit(timeout=5)
@@ -266,7 +287,7 @@ class TestStdinPrefsCommands:
         stdin set_lang 写入 deploy.yaml；重复写同值不写（mtime 不变）；
         非法值不写；结束恢复原值
         """
-        original_lang, original_theme = self._read_webapp()
+        original_lang, original_theme, original_dpi_scaling = self._read_webapp()
         try:
             with create_supervisor_process("prefs") as proc:
                 proc.wait_for_output("startup successful", timeout=10)
@@ -311,13 +332,13 @@ class TestStdinPrefsCommands:
                 proc.wait_for_exit(timeout=5)
         finally:
             if self._read_webapp()[0] != original_lang:
-                self._restore_prefs(original_lang, original_theme)
+                self._restore_prefs(original_lang, original_theme, original_dpi_scaling)
 
     def test_stdin_set_theme_persists(self):
         """
         stdin set_theme 写入 deploy.yaml 并幂等；结束恢复原值
         """
-        original_lang, original_theme = self._read_webapp()
+        original_lang, original_theme, original_dpi_scaling = self._read_webapp()
         try:
             with create_supervisor_process("prefs") as proc:
                 proc.wait_for_output("startup successful", timeout=10)
@@ -328,7 +349,7 @@ class TestStdinPrefsCommands:
                 proc.process.stdin.flush()
                 deadline = time.time() + 10
                 while time.time() < deadline:
-                    _, theme = self._read_webapp()
+                    _, theme, _ = self._read_webapp()
                     if theme == target:
                         break
                     time.sleep(0.05)
@@ -356,4 +377,48 @@ class TestStdinPrefsCommands:
                 proc.wait_for_exit(timeout=5)
         finally:
             if self._read_webapp()[1] != original_theme:
-                self._restore_prefs(original_lang, original_theme)
+                self._restore_prefs(original_lang, original_theme, original_dpi_scaling)
+
+    def test_stdin_set_dpi_scaling_persists_idempotent(self):
+        """
+        stdin set_dpi_scaling 写入 deploy.yaml；重复写同值不写（mtime 不变）；
+        非法值不写；结束恢复原值
+        """
+        original_lang, original_theme, original_dpi_scaling = self._read_webapp()
+        try:
+            with create_supervisor_process("prefs") as proc:
+                proc.wait_for_output("startup successful", timeout=10)
+                proc.wait_for_output("Prefs backend started", timeout=5)
+
+                # 1. Set a value different from the current one
+                target = (not original_dpi_scaling)
+                proc.process.stdin.write(f'command:set_dpi_scaling:{str(target).lower()}\n')
+                proc.process.stdin.flush()
+                self._wait_for_dpi_scaling(target)
+                mtime1 = os.stat(DEPLOY_YAML).st_mtime_ns
+
+                # 2. Same value again -> no write, mtime unchanged
+                time.sleep(0.1)
+                proc.process.stdin.write(f'command:set_dpi_scaling:{str(target).lower()}\n')
+                proc.process.stdin.flush()
+                time.sleep(1.5)
+                assert os.stat(DEPLOY_YAML).st_mtime_ns == mtime1
+                assert self._read_webapp()[2] == target
+
+                # 3. Invalid value -> rejected by the backend, no write
+                time.sleep(0.1)
+                proc.process.stdin.write('command:set_dpi_scaling:yes\n')
+                proc.process.stdin.flush()
+                time.sleep(1.5)
+                assert os.stat(DEPLOY_YAML).st_mtime_ns == mtime1
+                assert self._read_webapp()[2] == target
+
+                # 4. Backend still alive, graceful stop works
+                assert proc.is_alive()
+                proc.process.stdin.write('command:stop\n')
+                proc.process.stdin.flush()
+                proc.wait_for_output('Received stop signal, shutting down gracefully', timeout=5)
+                proc.wait_for_exit(timeout=5)
+        finally:
+            if self._read_webapp()[2] != original_dpi_scaling:
+                self._restore_prefs(original_lang, original_theme, original_dpi_scaling)
