@@ -24,7 +24,11 @@ interface SharedState {
   backendPort: number;
   route: RouteType;
   isFirstTimeSetup: boolean;
-  errorMessage?: string;
+  // Error page payload: errorKey is an i18n key resolved by the renderer
+  // (i18n/Error.json), errorPath is an optional filesystem path shown as
+  // supplementary detail.
+  errorKey?: string;
+  errorPath?: string;
 }
 
 const state: SharedState = {
@@ -51,9 +55,17 @@ export function initSharedState(config: { backendPort: number; route: RouteType;
   state.isFirstTimeSetup = config.isFirstTimeSetup;
 }
 
-export function setRoute(route: RouteType, errorMessage?: string) {
+export function setRoute(route: RouteType, errorKey?: string, errorPath?: string) {
   state.route = route;
-  if (errorMessage) state.errorMessage = errorMessage;
+  if (route === "error") {
+    if (errorKey) state.errorKey = errorKey;
+    if (errorPath) state.errorPath = errorPath;
+  } else {
+    // Leaving the error route: drop the payload so a later error never
+    // shows a stale key/path from a previous failure.
+    state.errorKey = undefined;
+    state.errorPath = undefined;
+  }
   notifyRenderer();
 }
 

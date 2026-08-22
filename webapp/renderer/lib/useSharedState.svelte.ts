@@ -76,8 +76,11 @@ export function useSharedState() {
     get isFirstTimeSetup() {
       return state?.isFirstTimeSetup || false;
     },
-    get errorMessage() {
-      return state?.errorMessage;
+    get errorKey() {
+      return state?.errorKey;
+    },
+    get errorPath() {
+      return state?.errorPath;
     },
   };
 }

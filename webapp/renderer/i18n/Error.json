@@ -1,9 +1,58 @@
 {
+  "ConfigNotFound": {
+    "en-US": "Could not find deploy.yaml or deploy.template.yaml",
+    "zh-CN": "找不到 deploy.yaml 或 deploy.template.yaml",
+    "ja-JP": "deploy.yaml または deploy.template.yaml が見つかりません",
+    "zh-TW": "找不到 deploy.yaml 或 deploy.template.yaml",
+    "es-ES": "No se pudo encontrar deploy.yaml o deploy.template.yaml"
+  },
+  "PythonNotConfigured": {
+    "en-US": "Python.PythonExecutable is not configured in deploy.yaml",
+    "zh-CN": "deploy.yaml 中未配置 Python.PythonExecutable",
+    "ja-JP": "deploy.yaml に Python.PythonExecutable が設定されていません",
+    "zh-TW": "deploy.yaml 中未設定 Python.PythonExecutable",
+    "es-ES": "Python.PythonExecutable no está configurado en deploy.yaml"
+  },
+  "PythonNotFound": {
+    "en-US": "Python executable not found",
+    "zh-CN": "未找到 Python 可执行文件",
+    "ja-JP": "Python 実行ファイルが見つかりません",
+    "zh-TW": "找不到 Python 可執行檔",
+    "es-ES": "No se encontró el ejecutable de Python"
+  },
+  "GuiPyNotFound": {
+    "en-US": "gui.py not found",
+    "zh-CN": "未找到 gui.py",
+    "ja-JP": "gui.py が見つかりません",
+    "zh-TW": "找不到 gui.py",
+    "es-ES": "No se encontró gui.py"
+  },
+  "BackendStartFailed": {
+    "en-US": "Failed to start backend",
+    "zh-CN": "后端启动失败",
+    "ja-JP": "バックエンドの起動に失敗しました",
+    "zh-TW": "後端啟動失敗",
+    "es-ES": "Error al iniciar el backend"
+  },
+  "UnknownError": {
+    "en-US": "Unknown error",
+    "zh-CN": "未知错误",
+    "ja-JP": "不明なエラー",
+    "zh-TW": "未知錯誤",
+    "es-ES": "Error desconocido"
+  },
   "CurrentPath": {
     "en-US": "Current path",
     "zh-CN": "当前路径",
     "ja-JP": "現在のパス",
     "zh-TW": "當前路徑",
     "es-ES": "Ruta actual"
+  },
+  "Retry": {
+    "en-US": "Retry",
+    "zh-CN": "重试",
+    "ja-JP": "再試行",
+    "zh-TW": "重試",
+    "es-ES": "Reintentar"
   }
 }

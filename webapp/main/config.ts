@@ -18,9 +18,11 @@ interface DeployConfig {
   };
 }
 
+// `type` doubles as the i18n key consumed by the renderer error page (it
+// matches the key names in renderer/i18n/Error.json 1:1); the localized
+// texts live in the renderer, so no raw message is carried here.
 export interface ConfigError {
-  type: "config_not_found" | "python_not_found" | "guipy_not_found";
-  message: string;
+  type: "ConfigNotFound" | "PythonNotConfigured" | "PythonNotFound" | "GuiPyNotFound";
   currentPath: string;
 }
 
@@ -78,8 +80,7 @@ export function loadConfig(): void {
   // No config files found
   if (!deployPath && !templatePath) {
     appState.configError = {
-      type: "config_not_found",
-      message: "Could not find deploy.yaml or deploy.template.yaml",
+      type: "ConfigNotFound",
       currentPath: startPath,
     };
     return;
@@ -102,8 +103,7 @@ export function loadConfig(): void {
   const pythonExecutableRaw = config.Python?.PythonExecutable;
   if (!pythonExecutableRaw) {
     appState.configError = {
-      type: "python_not_found",
-      message: "Python.PythonExecutable is not configured in deploy.yaml",
+      type: "PythonNotConfigured",
       currentPath: startPath,
     };
     return;
@@ -118,8 +118,7 @@ export function loadConfig(): void {
   // Verify Python executable exists
   if (!fs.existsSync(pythonExecutable)) {
     appState.configError = {
-      type: "python_not_found",
-      message: `Python executable not found: ${pythonExecutable}`,
+      type: "PythonNotFound",
       currentPath: startPath,
     };
     return;
@@ -129,8 +128,7 @@ export function loadConfig(): void {
   const guiPath = path.join(rootPath, "gui.py");
   if (!fs.existsSync(guiPath)) {
     appState.configError = {
-      type: "guipy_not_found",
-      message: `gui.py not found at: ${guiPath}`,
+      type: "GuiPyNotFound",
       currentPath: startPath,
     };
     return;

@@ -72,7 +72,7 @@ if (!gotTheLock) {
       setTrayWindow(window);
       setBackendWindow(window);
 
-      setRoute("error", appState.configError.message);
+      setRoute("error", appState.configError.type, appState.configError.currentPath);
 
       setupSharedStateIPC();
       setupWindowIPC();
@@ -109,7 +109,7 @@ if (!gotTheLock) {
         setRoute("app");
       } catch (err) {
         console.error("Failed to start backend:", err);
-        setRoute("error", "Failed to start backend");
+        setRoute("error", "BackendStartFailed");
       }
     });
 
@@ -124,7 +124,7 @@ if (!gotTheLock) {
         setRoute("app");
       } catch (err) {
         console.error("Failed to start backend:", err);
-        setRoute("error", "Failed to start backend");
+        setRoute("error", "BackendStartFailed");
       }
     }
   });
