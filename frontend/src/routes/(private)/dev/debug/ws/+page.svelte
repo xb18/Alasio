@@ -9,7 +9,7 @@
   import { t } from "$lib/i18n";
   import { websocketClient } from "$lib/ws";
   import { createRpc } from "$lib/ws/rpc.svelte";
-  import { Loader2 } from "@lucide/svelte";
+  import Loader2 from "@lucide/svelte/icons/loader-circle";
   import { onDestroy } from "svelte";
 
   // --- Form State ---

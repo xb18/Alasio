@@ -3,7 +3,7 @@
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils";
   import { useDraggable, useDroppable } from "@dnd-kit-svelte/core";
-  import { GripVertical } from "@lucide/svelte";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import ConfigItem, { type Config } from "./ConfigItem.svelte";
 
   export type ConfigGroupData = {

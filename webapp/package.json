@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "i18ngen": "tsx scripts/i18n/cli.ts"
+    "i18ngen": "tsx scripts/i18n/cli.ts",
+    "fix:lucide": "tsx scripts/lucide-per-icon.ts renderer"
   },
   "dependencies": {
     "js-yaml": "^4.3.1",

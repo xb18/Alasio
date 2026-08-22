@@ -5,7 +5,7 @@
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils.js";
   import { useTopic } from "$lib/ws";
-  import { Settings } from "@lucide/svelte";
+  import Settings from "@lucide/svelte/icons/settings";
   import ConfigItem from "./ConfigItem.svelte";
   import type { ConfigLike, ConfigTopicLike, WORKER_STATE } from "./types";
 

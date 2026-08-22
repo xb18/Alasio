@@ -1,6 +1,9 @@
 <script lang="ts">
   import { cn } from "$lib/utils";
-  import { CircleAlert, CircleCheck, LoaderCircle, X } from "@lucide/svelte";
+  import CircleAlert from "@lucide/svelte/icons/circle-alert";
+  import CircleCheck from "@lucide/svelte/icons/circle-check";
+  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
+  import X from "@lucide/svelte/icons/x";
   import type { UploadState } from "./uploadState.svelte";
   import Button from "../ui/button/button.svelte";
 

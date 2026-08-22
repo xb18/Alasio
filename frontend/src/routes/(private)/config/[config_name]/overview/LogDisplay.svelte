@@ -2,7 +2,7 @@
   import Button from "$lib/components/ui/button/button.svelte";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { cn } from "$lib/utils";
-  import { ArrowDownToLine } from "@lucide/svelte";
+  import ArrowDownToLine from "@lucide/svelte/icons/arrow-down-to-line";
   import { t } from "$lib/i18n";
   import LogData from "./LogData.svelte";
   import type { LogDataProps } from "./types";

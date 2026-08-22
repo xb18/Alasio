@@ -6,7 +6,8 @@
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils";
   import { useTopic } from "$lib/ws";
-  import { Loader2, Plus } from "@lucide/svelte";
+  import Loader2 from "@lucide/svelte/icons/loader-circle";
+  import Plus from "@lucide/svelte/icons/plus";
   import type { ConfigGroupData } from "./ConfigGroup.svelte";
   import ConfigGroup from "./ConfigGroup.svelte";
   import type { Config } from "./ConfigItem.svelte";

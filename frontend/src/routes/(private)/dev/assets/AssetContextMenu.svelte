@@ -15,7 +15,10 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Separator } from "$lib/components/ui/separator";
   import type { TopicLifespan } from "$lib/ws";
-  import { Edit, FilePlus, Package, Trash2 } from "@lucide/svelte";
+  import Edit from "@lucide/svelte/icons/square-pen";
+  import FilePlus from "@lucide/svelte/icons/file-plus";
+  import Package from "@lucide/svelte/icons/package";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { Snippet } from "svelte";
   import { assetSelection } from "./selected.svelte";
   import type { FolderResponse } from "./types";

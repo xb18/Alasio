@@ -6,7 +6,7 @@
   import { Label } from "$lib/components/ui/label";
   import { t } from "$lib/i18n";
   import type { Rpc } from "$lib/ws";
-  import { FilePenLine } from "@lucide/svelte";
+  import FilePenLine from "@lucide/svelte/icons/file-pen-line";
   import type { Config } from "./ConfigItem.svelte";
 
   type Props = {

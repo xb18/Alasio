@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Tooltip from "$lib/components/ui/tooltip";
   import { cn } from "$lib/utils";
-  import { Hourglass } from "@lucide/svelte";
+  import Hourglass from "@lucide/svelte/icons/hourglass";
   import type { Snippet } from "svelte";
 
   let {

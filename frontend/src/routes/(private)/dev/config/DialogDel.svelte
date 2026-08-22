@@ -4,7 +4,7 @@
   import { Help } from "$lib/components/ui/help";
   import { t } from "$lib/i18n";
   import type { Rpc } from "$lib/ws";
-  import { AlertTriangle } from "@lucide/svelte";
+  import AlertTriangle from "@lucide/svelte/icons/triangle-alert";
   import type { Config } from "./ConfigItem.svelte";
 
   type Props = {

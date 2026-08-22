@@ -12,7 +12,8 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "format": "prettier --write .",
     "lint": "prettier --check .",
-    "i18ngen": "tsx scripts/i18n/cli.ts"
+    "i18ngen": "tsx scripts/i18n/cli.ts",
+    "fix:lucide": "tsx scripts/lucide-per-icon.ts src"
   },
   "devDependencies": {
     "@csstools/postcss-color-mix-function": "^3.0.12",

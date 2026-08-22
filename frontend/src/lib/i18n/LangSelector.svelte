@@ -6,7 +6,8 @@
   import { cn } from "$lib/utils";
   import { useTopic } from "$lib/ws";
   import { SUPPORTED_LANGS } from "$src/i18ngen/constants";
-  import { Check, Languages } from "@lucide/svelte";
+  import Check from "@lucide/svelte/icons/check";
+  import Languages from "@lucide/svelte/icons/languages";
 
   type Props = {
     disabled?: boolean;

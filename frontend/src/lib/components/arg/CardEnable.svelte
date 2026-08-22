@@ -3,7 +3,8 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils";
-  import { LockKeyhole, RotateCcw } from "@lucide/svelte";
+  import LockKeyhole from "@lucide/svelte/icons/lock-keyhole";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Enable from "../arginput/Enable.svelte";
   import Input from "../arginput/Input.svelte";
   import Static from "../arginput/Static.svelte";

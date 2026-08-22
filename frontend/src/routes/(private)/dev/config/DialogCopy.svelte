@@ -6,7 +6,7 @@
   import { Label } from "$lib/components/ui/label";
   import { t } from "$lib/i18n";
   import type { Rpc } from "$lib/ws";
-  import { Copy } from "@lucide/svelte";
+  import Copy from "@lucide/svelte/icons/copy";
   import type { Config } from "./ConfigItem.svelte";
 
   type Props = {

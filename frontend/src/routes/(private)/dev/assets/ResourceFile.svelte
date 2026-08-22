@@ -1,7 +1,10 @@
 <script lang="ts">
   import { Image } from "$lib/components/ui/image";
   import * as Tooltip from "$lib/components/ui/tooltip";
-  import { CircleHelp, CloudOff, Link, Unlink } from "@lucide/svelte";
+  import CircleHelp from "@lucide/svelte/icons/circle-question-mark";
+  import CloudOff from "@lucide/svelte/icons/cloud-off";
+  import Link from "@lucide/svelte/icons/link";
+  import Unlink from "@lucide/svelte/icons/unlink";
   import type { HTMLAttributes } from "svelte/elements";
   import ResourceDisplay from "./ResourceDisplay.svelte";
   import type { ResourceItem } from "./types";

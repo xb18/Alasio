@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils.js";
-  import { Menu } from "@lucide/svelte";
+  import Menu from "@lucide/svelte/icons/menu";
   import type { HTMLAttributes } from "svelte/elements";
   import AppHeader from "./AppHeader.svelte";
   import { HeaderContext } from "$lib/slotcontext.svelte";

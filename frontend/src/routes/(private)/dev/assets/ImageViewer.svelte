@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils";
-  import { RefreshCcw } from "@lucide/svelte";
+  import RefreshCcw from "@lucide/svelte/icons/refresh-ccw";
   import { onDestroy, onMount, untrack } from "svelte";
 
   // --- Component Props ---

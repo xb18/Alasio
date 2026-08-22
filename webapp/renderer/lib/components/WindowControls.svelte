@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { Minus, Square, X, Minimize2, Copy } from "@lucide/svelte";
+  import Minus from "@lucide/svelte/icons/minus";
+  import Square from "@lucide/svelte/icons/square";
+  import X from "@lucide/svelte/icons/x";
+  import Minimize2 from "@lucide/svelte/icons/minimize-2";
+  import Copy from "@lucide/svelte/icons/copy";
   import CloseDialog from "./CloseDialog.svelte";
 
   let isMaximized = $state(false);

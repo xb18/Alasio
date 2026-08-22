@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cn } from "$lib/utils.js";
-  import { AlertCircle, Loader2 } from "@lucide/svelte";
+  import AlertCircle from "@lucide/svelte/icons/circle-alert";
+  import Loader2 from "@lucide/svelte/icons/loader-circle";
   import { type Snippet } from "svelte";
   import type { HTMLImgAttributes } from "svelte/elements";
 

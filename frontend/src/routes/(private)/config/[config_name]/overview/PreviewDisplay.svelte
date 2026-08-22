@@ -5,7 +5,13 @@
   import { t } from "$lib/i18n";
   import { fullTime, globalClock, shortTime } from "$lib/use/clock.svelte";
   import { cn } from "$lib/utils";
-  import { Check, CircleDotDashed, Clock, EyeOff, PlayOff, TriangleAlert, Zap } from "@lucide/svelte";
+  import Check from "@lucide/svelte/icons/check";
+  import CircleDotDashed from "@lucide/svelte/icons/circle-dot-dashed";
+  import Clock from "@lucide/svelte/icons/clock";
+  import EyeOff from "@lucide/svelte/icons/eye-off";
+  import PlayOff from "@lucide/svelte/icons/play-off";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
+  import Zap from "@lucide/svelte/icons/zap";
   import { onDestroy, untrack } from "svelte";
   import type { PreviewMode, PreviewState } from "./types";
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { FlaskConical } from "@lucide/svelte";
+  import FlaskConical from "@lucide/svelte/icons/flask-conical";
   import * as Popover from "$lib/components/ui/popover";
   import { buttonVariants } from "$lib/components/ui/button/button.svelte";
   import { cn } from "$lib/utils";

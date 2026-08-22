@@ -5,7 +5,7 @@
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils";
   import { useTopic } from "$lib/ws";
-  import { CircleDotDashed } from "@lucide/svelte";
+  import CircleDotDashed from "@lucide/svelte/icons/circle-dot-dashed";
   import ActionKill from "./ActionKill.svelte";
   import ActionSchedulerContinue from "./ActionSchedulerContinue.svelte";
   import ActionSchedulerStop from "./ActionSchedulerStop.svelte";

@@ -7,7 +7,7 @@
     BreadcrumbPage,
     BreadcrumbSeparator,
   } from "$lib/components/ui/breadcrumb";
-  import { FolderOpen } from "@lucide/svelte";
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
   import { cn } from "$lib/utils";
 
   let {

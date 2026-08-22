@@ -1,6 +1,6 @@
 <script lang="ts">
   import { cn } from "$lib/utils.js";
-  import { Play } from "@lucide/svelte";
+  import Play from "@lucide/svelte/icons/play";
 
   type Props = {
     mod: string;

@@ -2,7 +2,7 @@
   import * as Tooltip from "$lib/components/ui/tooltip";
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils";
-  import { MessageCircleQuestionMark } from "@lucide/svelte";
+  import MessageCircleQuestionMark from "@lucide/svelte/icons/message-circle-question-mark";
 
   let {
     helpVisible = $bindable(),

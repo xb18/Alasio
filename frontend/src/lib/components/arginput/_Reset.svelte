@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils";
-  import { RotateCcw } from "@lucide/svelte";
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
 
   let {
     onReset,

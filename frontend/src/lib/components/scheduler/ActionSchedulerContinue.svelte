@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Tooltip from "$lib/components/ui/tooltip";
   import { cn } from "$lib/utils";
-  import { Play } from "@lucide/svelte";
+  import Play from "@lucide/svelte/icons/play";
   import type { Snippet } from "svelte";
 
   let {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Power } from "@lucide/svelte";
+  import Power from "@lucide/svelte/icons/power";
   import LayoutHorizontalLike from "$lib/components/arg/LayoutHorizontalLike.svelte";
   import type { ArgData } from "$lib/components/arg/utils.svelte";
   import { Button } from "$lib/components/ui/button";
