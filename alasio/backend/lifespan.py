@@ -11,17 +11,40 @@ def mpipe_recv_loop(conn, trio_token):
     """
     from alasio.backend.prefs import handle_stdin_set_dpi_scaling, handle_stdin_set_lang, handle_stdin_set_theme
     from alasio.logger import logger
+
+    def request_shutdown(reason):
+        """
+        Request the backend to shut itself down.
+
+        The shutdown event is always set, even if logging fails: when the
+        supervisor or the host process (electron) died, the stdout pipe may
+        be broken and the logger could raise. The backend must never be left
+        running as an orphan just because the log message could not be
+        written.
+
+        Args:
+            reason (str): Log message for the shutdown
+        """
+        try:
+            trio.from_thread.run_sync(SHUTDOWN_EVENT.set, trio_token=trio_token)
+        except Exception:
+            # trio loop is already gone, nothing left to signal
+            pass
+        try:
+            logger.info(reason)
+        except Exception:
+            # stdout pipe broken (host process died), drop the message
+            pass
+
     while 1:
         try:
             msg = conn.recv_bytes()
         except (EOFError, OSError):
-            logger.info('Backend disconnected to supervisor, shutting down backend')
-            trio.from_thread.run_sync(SHUTDOWN_EVENT.set, trio_token=trio_token)
+            request_shutdown('Backend disconnected to supervisor, shutting down backend')
             break
 
         if msg == b'command:stop':
-            logger.info('Backend received stop request from supervisor, shutting down backend')
-            trio.from_thread.run_sync(SHUTDOWN_EVENT.set, trio_token=trio_token)
+            request_shutdown('Backend received stop request from supervisor, shutting down backend')
             break
         elif msg.startswith(b'command:set_lang:'):
             # Host-level webapp language from the stdin contract. Parse,

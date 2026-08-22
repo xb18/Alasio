@@ -396,6 +396,90 @@ class TestLoggerError(BaseLoggerTest):
         assert pos_nested < pos_type
 
 
+class TestLoggerStdoutError(BaseLoggerTest):
+    """
+    A broken stdout (e.g. the host electron process died) must never make
+    the logger raise into the caller: teardown paths like the backend
+    shutdown trigger would otherwise be aborted before the shutdown event
+    is set, leaving the backend running as an orphan.
+    """
+
+    class RaiseStream:
+        """
+        A stream whose write/flush always raise OSError, simulating a
+        broken stdout pipe.
+        """
+
+        def write(self, text):
+            raise OSError(22, 'Invalid argument')
+
+        def flush(self):
+            raise OSError(22, 'Invalid argument')
+
+    def test_info_does_not_raise_on_broken_stdout(self):
+        """
+        logger.info must not raise when stdout is broken; the log file
+        should still receive the message
+        """
+        from alasio.ext.cache import cached_property_threadsafe
+
+        writer = LogWriter()
+        cached_property_threadsafe.set(writer, 'stdout', self.RaiseStream())
+        try:
+            logger.info('Message with broken stdout')
+        finally:
+            cached_property_threadsafe.pop(writer, 'stdout')
+
+        content = self._read_log_file()
+        assert 'Message with broken stdout' in content
+
+    def test_exception_logging_does_not_raise_on_broken_stdout(self):
+        """
+        logger.exception must not raise when stdout is broken; the file
+        should still receive the message and the traceback
+        """
+        from alasio.ext.cache import cached_property_threadsafe
+
+        writer = LogWriter()
+        cached_property_threadsafe.set(writer, 'stdout', self.RaiseStream())
+        try:
+            try:
+                raise ValueError('broken pipe test')
+            except ValueError:
+                logger.exception('An error occurred')
+        finally:
+            cached_property_threadsafe.pop(writer, 'stdout')
+
+        content = self._read_log_file()
+        assert 'An error occurred' in content
+        assert 'broken pipe test' in content
+
+    def test_info_does_not_raise_with_backend_inited(self):
+        """
+        The backend-initialized branch must behave the same: broken stdout
+        drops the message, the caller never sees an exception
+        """
+        from unittest.mock import MagicMock
+
+        from alasio.ext.cache import cached_property_threadsafe
+
+        mock_backend = MagicMock()
+        mock_backend.inited = True
+        mock_backend.config_name = 'test_config'
+
+        writer = LogWriter()
+        cached_property_threadsafe.set(writer, 'backend', mock_backend)
+        cached_property_threadsafe.set(writer, 'stdout', self.RaiseStream())
+        try:
+            logger.info('Message with backend and broken stdout')
+        finally:
+            cached_property_threadsafe.pop(writer, 'backend')
+            cached_property_threadsafe.pop(writer, 'stdout')
+
+        content = self._read_log_file()
+        assert 'Message with backend and broken stdout' in content
+
+
 class TestLoggerException(BaseLoggerTest):
     """
     Test logger.exception() functionality
