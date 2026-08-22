@@ -1,5 +1,6 @@
 import os
 import signal
+import stat
 import sys
 import threading
 import time
@@ -15,6 +16,16 @@ def loop_until_timeout(timeout):
 
 def mprint(*args, start=''):
     print(f'{start}[Supervisor]', *args)
+
+
+class ParentProcessExited(Exception):
+    """
+    Raised when the host process (Electron) closed the stdin command channel.
+
+    The supervisor's main loop raises this when the stdin listener observes a
+    closed pipe: nobody is left to manage the supervisor, so the backend is
+    shut down instead of being left running as an orphan.
+    """
 
 
 def _backend_process_entry(conn, args, backend_entry):
@@ -123,6 +134,12 @@ class Supervisor:
         # function), so there is no pickle compatibility constraint.
         self._stdin_stop = threading.Event()
         self._stdin_thread = None
+
+        # Set when the stdin listener observes EOF on a pipe stdin: the
+        # parent process (Electron) is gone. One-shot and never cleared,
+        # parent death is permanent. recv_loop checks it and raises
+        # ParentProcessExited to trigger the graceful shutdown.
+        self._stdin_eof = threading.Event()
 
     def _check_restart_limit(self) -> bool:
         """
@@ -242,6 +259,17 @@ class Supervisor:
         while a backend process is spawning, otherwise multiprocessing spawn
         hangs on Windows.
 
+        EOF semantics: when stdin is a pipe, EOF means the parent process
+        (Electron) closed its write end, i.e. the parent is gone. The
+        listener sets _stdin_eof; recv_loop turns that into a
+        ParentProcessExited so run() performs the graceful shutdown, which
+        sends command:stop to the backend (with a force-kill fallback).
+        The listener itself does not send anything: the shutdown path owns
+        the stop command, so sending it here would be redundant.
+        EOF on non-pipe stdin (console or redirected file) only stops the
+        listener, matching the original behavior: parent-death detection
+        only applies to the pipe stdin that Electron provides.
+
         Returns:
             threading.Thread | None: The listener thread, or None if it was
                 already running
@@ -257,6 +285,11 @@ class Supervisor:
                     fd = sys.stdin.fileno()
                     handle = msvcrt.get_osfhandle(fd)
                     peek = ctypes.windll.kernel32.PeekNamedPipe
+                    # Only pipe stdin carries parent-death semantics: the
+                    # write end is owned by the host process (Electron), so
+                    # EOF on a pipe means the parent is gone. Console stdin
+                    # is not a pipe and must never trigger shutdown.
+                    is_pipe = ctypes.windll.kernel32.GetFileType(handle) == 3  # FILE_TYPE_PIPE
 
                     def read_available():
                         # Non-blocking read of whatever is currently in the
@@ -282,6 +315,10 @@ class Supervisor:
                 else:
                     import select
                     fd = sys.stdin.fileno()
+                    # POSIX equivalent of the Windows pipe check: only a
+                    # FIFO has broken-pipe semantics; terminals and
+                    # redirected files must not trigger shutdown.
+                    is_pipe = stat.S_ISFIFO(os.fstat(fd).st_mode)
 
                     def read_available():
                         # select waits up to one poll cycle itself, so idle
@@ -304,10 +341,20 @@ class Supervisor:
                 if data is None:
                     continue
                 if not data:
-                    # EOF: parent process closed stdin. Handle a last line
-                    # that was not terminated by a newline, then stop.
+                    # EOF: the parent process closed its stdin write end.
+                    # Handle a last line that was not terminated by a
+                    # newline, then stop.
                     if line_buffer and self._handle_stdin_line(line_buffer):
                         return
+                    # On a pipe, EOF means the parent (Electron) is gone:
+                    # nobody is left to manage this supervisor. Flag the
+                    # main loop; recv_loop raises ParentProcessExited and
+                    # run() sends command:stop through graceful_shutdown.
+                    # The listener only detects, it never sends the stop
+                    # itself.
+                    if is_pipe:
+                        mprint("Parent process exited (stdin closed), shutting down")
+                        self._stdin_eof.set()
                     return
                 line_buffer += data
                 while b'\n' in line_buffer:
@@ -417,6 +464,12 @@ class Supervisor:
 
             # wait infinitely
             while 1:
+                if self._stdin_eof.is_set():
+                    # The parent process (Electron) closed the stdin command
+                    # channel: it is gone, so nobody is left to manage this
+                    # supervisor. Shut the backend down instead of leaving
+                    # it running as an orphan.
+                    raise ParentProcessExited
                 wake = self.parent_conn.poll(timeout=0.2)
                 if wake:
                     msg = self.parent_conn.recv_bytes()
@@ -632,6 +685,11 @@ class Supervisor:
                 startup_success = self.recv_loop()
                 self.wait_for_backend()
 
+                # The parent process is gone; never start another backend
+                if self._stdin_eof.is_set():
+                    mprint("Parent process exited (stdin closed), exiting")
+                    break
+
                 # Stop was requested through stdin, exit without restarting
                 if self.stop_requested:
                     mprint("Stop requested through stdin, exiting")
@@ -658,8 +716,9 @@ class Supervisor:
                     time.sleep(0.2)
                 continue
 
-        except KeyboardInterrupt:
-            # First CTRL+C - initiate graceful shutdown
+        except (KeyboardInterrupt, ParentProcessExited):
+            # First CTRL+C, or the parent process exited: initiate graceful
+            # shutdown
             try:
                 if not self.graceful_shutdown():
                     self.force_shutdown()

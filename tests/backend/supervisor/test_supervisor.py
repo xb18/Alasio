@@ -148,6 +148,19 @@ class TestSupervisor:
             proc.wait_for_output("Received stop signal, shutting down gracefully", timeout=5)
             proc.wait_for_exit(timeout=5)
 
+    def test_stdin_close_triggers_shutdown(self):
+        """父进程死亡（关闭 stdin）后，supervisor 自行优雅退出"""
+        with create_supervisor_process("normal") as proc:
+            proc.wait_for_output("startup successful", timeout=10)
+
+            # Simulate the parent (Electron) process dying: close stdin
+            proc.process.stdin.close()
+
+            # Supervisor detects the EOF, shuts the backend down and exits
+            proc.wait_for_output("Parent process exited (stdin closed), shutting down", timeout=5)
+            proc.wait_for_output("Received stop signal, shutting down gracefully", timeout=5)
+            proc.wait_for_exit(timeout=5)
+
     def test_kill_backend_restart(self):
         """在正常启动之后，直接杀死后端进程，supervisor能够重新拉起后端"""
         with create_supervisor_process("normal") as proc:

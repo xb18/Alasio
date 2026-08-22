@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from alasio.backend.supervisor import Supervisor
+from alasio.backend.supervisor import ParentProcessExited, Supervisor
 
 
 @pytest.fixture
@@ -128,14 +128,17 @@ class TestStartStdinListener:
         stream, write_fd = fake_stdin_from_pipe(b'hello world\nrandom text\n')
         replace_stdin(stream)
         supervisor, child_conn = make_supervisor_with_pipe()
-        os.close(write_fd)
 
         thread = supervisor.start_stdin_listener()
-        thread.join(timeout=2)
-
-        assert not thread.is_alive()
+        # give the listener time to drain the input; the parent stays alive
+        time.sleep(0.2)
+        assert thread.is_alive()
         assert not child_conn.poll(timeout=0.2)
         assert supervisor.stop_requested is False
+
+        supervisor.stop_stdin_listener()
+        assert not thread.is_alive()
+        os.close(write_fd)
 
     def test_mixed_input_forwards_only_known(self, replace_stdin):
         stream, write_fd = fake_stdin_from_pipe(b'unknown\ncommand:stop\nignored\n')
@@ -150,7 +153,10 @@ class TestStartStdinListener:
         assert recv_with_timeout(child_conn) == b'command:stop'
         assert not child_conn.poll(timeout=0.2)
 
-    def test_stdin_eof_stops_listener(self, replace_stdin):
+    def test_stdin_eof_triggers_shutdown(self, replace_stdin):
+        # Closing stdin on a pipe means the parent process (Electron) is
+        # gone: the listener flags the main loop, it does not send the
+        # stop itself (graceful_shutdown owns the stop command)
         stream, write_fd = fake_stdin_from_pipe()
         replace_stdin(stream)
         supervisor, child_conn = make_supervisor_with_pipe()
@@ -161,6 +167,56 @@ class TestStartStdinListener:
 
         assert not thread.is_alive()
         assert not child_conn.poll(timeout=0.2)
+        assert supervisor.stop_requested is False
+        assert supervisor._stdin_eof.is_set()
+
+    def test_stdin_eof_trailing_stop_line(self, replace_stdin):
+        # A trailing command:stop without a newline is handled first; the
+        # EOF branch is never reached, so _stdin_eof stays unset
+        stream, write_fd = fake_stdin_from_pipe(b'command:stop')
+        replace_stdin(stream)
+        supervisor, child_conn = make_supervisor_with_pipe()
+        os.close(write_fd)
+
+        thread = supervisor.start_stdin_listener()
+        thread.join(timeout=2)
+
+        assert not thread.is_alive()
+        assert recv_with_timeout(child_conn) == b'command:stop'
+        assert supervisor.stop_requested is True
+        assert supervisor._stdin_eof.is_set() is False
+
+    def test_stdin_eof_trailing_unknown_line(self, replace_stdin):
+        # A trailing non-stop line is forwarded first, then EOF flags the
+        # parent-death shutdown (without sending a stop itself)
+        stream, write_fd = fake_stdin_from_pipe(b'command:set_lang:zh-CN')
+        replace_stdin(stream)
+        supervisor, child_conn = make_supervisor_with_pipe()
+        os.close(write_fd)
+
+        thread = supervisor.start_stdin_listener()
+        thread.join(timeout=2)
+
+        assert not thread.is_alive()
+        assert recv_with_timeout(child_conn) == b'command:set_lang:zh-CN'
+        assert not child_conn.poll(timeout=0.2)
+        assert supervisor.stop_requested is False
+        assert supervisor._stdin_eof.is_set()
+
+    def test_stdin_eof_non_pipe_ignored(self, replace_stdin):
+        # EOF on non-pipe stdin (console/redirected file) must not trigger
+        # the parent-death shutdown: only pipe stdin has that semantics
+        stream = open(os.devnull, 'r', encoding='utf-8')
+        replace_stdin(stream)
+        supervisor, child_conn = make_supervisor_with_pipe()
+
+        thread = supervisor.start_stdin_listener()
+        thread.join(timeout=2)
+
+        assert not thread.is_alive()
+        assert not child_conn.poll(timeout=0.2)
+        assert supervisor.stop_requested is False
+        assert supervisor._stdin_eof.is_set() is False
 
     def test_no_stdin(self, replace_stdin):
         # sys.stdin may be None (e.g. pythonw), listener should exit silently
@@ -288,6 +344,57 @@ class TestRunStopsListener:
         assert supervisor._stdin_thread is None
         os.close(write_fd)
 
+    def test_run_parent_death_shuts_down(self, replace_stdin, monkeypatch):
+        import signal
+
+        stream, write_fd = fake_stdin_from_pipe()
+        replace_stdin(stream)
+        supervisor, _ = make_supervisor_with_pipe()
+        supervisor.backend_entry = staticmethod(lambda args: None)
+        supervisor.startup_timeout = 0.3
+        supervisor.graceful_shutdown_timeout = 0.5
+
+        def fake_start_backend(args):
+            # A backend that never exits on its own: shutdown must fall
+            # back to force kill
+            supervisor.process = FakeProcess(alive=True, exit_on_join=False)
+            # run()'s cleanup() closed the pipe; restore it like a real
+            # spawn would, so recv_loop can run. Keep the child end
+            # referenced: closing it breaks the duplex pipe on Windows.
+            parent, child = multiprocessing.Pipe()
+            supervisor.parent_conn = parent
+            keepalive.append(child)
+
+        keepalive = []
+        monkeypatch.setattr(supervisor, 'start_backend', fake_start_backend)
+
+        # Simulate the parent dying once the stdin listener is up
+        def parent_dies_later():
+            deadline = time.time() + 2
+            while time.time() < deadline:
+                thread = supervisor._stdin_thread
+                if thread is not None and thread.is_alive():
+                    break
+                time.sleep(0.05)
+            os.close(write_fd)
+
+        killer = threading.Thread(target=parent_dies_later, daemon=True)
+        killer.start()
+        try:
+            supervisor.run([])
+        finally:
+            # run() installs custom signal handlers, restore the defaults
+            signal.signal(signal.SIGINT, signal.SIG_DFL)
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            if sys.platform == 'win32':
+                signal.signal(signal.SIGBREAK, signal.SIG_DFL)
+
+        killer.join(timeout=2)
+        assert supervisor._stdin_eof.is_set()
+        # graceful shutdown timed out (backend never exits), force killed
+        assert supervisor.process is None
+        assert supervisor._stdin_thread is None
+
 
 class TestRecvLoopStartsListener:
     """Tests for recv_loop starting the stdin listener after startup."""
@@ -318,6 +425,42 @@ class TestRecvLoopStartsListener:
         assert result['ok'] is True
 
         os.close(write_fd)
+        supervisor.stop_stdin_listener()
+        assert supervisor._stdin_thread is None
+
+    def test_recv_loop_raises_on_parent_exit(self, replace_stdin):
+        stream, write_fd = fake_stdin_from_pipe()
+        replace_stdin(stream)
+        supervisor, child_conn = make_supervisor_with_pipe()
+        supervisor.startup_timeout = 0.3
+
+        result = {}
+
+        def run_recv_loop():
+            try:
+                supervisor.recv_loop()
+            except ParentProcessExited as e:
+                result['raised'] = type(e).__name__
+            else:
+                result['raised'] = None
+
+        thread = threading.Thread(target=run_recv_loop, daemon=True)
+        thread.start()
+
+        # after startup timeout, the stdin listener should be running
+        time.sleep(0.8)
+        assert supervisor._stdin_thread is not None
+        assert supervisor._stdin_thread.is_alive()
+
+        # parent death: close the stdin write end
+        os.close(write_fd)
+        thread.join(timeout=2)
+        assert not thread.is_alive()
+        assert result['raised'] == 'ParentProcessExited'
+        assert supervisor._stdin_eof.is_set()
+        # the listener only flags the shutdown, it does not send stop
+        assert not child_conn.poll(timeout=0.2)
+
         supervisor.stop_stdin_listener()
         assert supervisor._stdin_thread is None
 
