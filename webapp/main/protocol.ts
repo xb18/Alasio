@@ -20,16 +20,31 @@ function resolveSafe(rendererDir: string, urlPath: string): string {
 }
 
 // Map a URL path to a file, resolving directory requests (e.g. app://bundle/ -> index.html)
+// and SPA route fallbacks (e.g. app://bundle/app -> index.html).
 function resolveFile(rendererDir: string, urlPath: string): string {
   const filePath = resolveSafe(rendererDir, urlPath);
   try {
     if (fs.statSync(filePath).isDirectory()) {
       return path.join(filePath, "index.html");
     }
-  } catch (e) {
-    // File not found: let the request fail with the original path
+    return filePath;
+  } catch (err: any) {
+    // Not an existing file. Non-ENOENT errors (e.g. permission) are not
+    // route misses: let the request fail with the original path.
+    if (err.code !== "ENOENT") {
+      return filePath;
+    }
+    // The renderer is a pure SPA (adapter-static with fallback
+    // "index.html"): client-side routes like /app or /loading are not real
+    // files, but a reload (Ctrl+R) navigates to them directly, so they must
+    // be served the SPA shell instead of failing the whole window. Requests
+    // with a file extension are assets (e.g. stale _app/immutable/.../x.js)
+    // and must keep failing instead of being served an HTML document.
+    if (path.extname(filePath)) {
+      return filePath;
+    }
+    return path.join(rendererDir, "index.html");
   }
-  return filePath;
 }
 
 /**
