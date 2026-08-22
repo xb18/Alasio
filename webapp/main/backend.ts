@@ -102,10 +102,10 @@ export function startBackend(
     // message "Running on http://..." (printed to stderr) instead of a plain
     // "Running on". Both streams are watched in case hypercorn logging moves.
     const handleOutput = (data: Buffer) => {
-      const text = data.toString();
-
       // Only push logs before backend is ready (prevent memory growth)
       if (isReady) return;
+
+      const text = data.toString();
       mainWindow?.webContents.send(IPC_BACKEND_LOG, text);
 
       if (text.includes("Running on http")) {
