@@ -19,8 +19,13 @@
 
 export type WindowControlsAvoidMode = "auto" | "always" | "never";
 
-// Window controls: hide + minimize + maximize + close, each 48px (w-12) wide
-export const WINDOW_CONTROLS_WIDTH = 192;
+// Window controls: hide + minimize + maximize + close, each 36px (w-9) wide
+// with 4px (gap-1) gaps between them and 6px (pr-1.5) right margin,
+// plus 6px spacing from the header content on the left, so the buttons
+// have an even 6px margin on all four sides (the 6px vertical offset
+// inside the 48px (h-12) title bar)
+// 4 * 36 + 3 * 4 + 6 + 6 = 168
+export const WINDOW_CONTROLS_WIDTH = 168;
 
 const EMBEDDED_KEY = "alasio-embedded";
 const AVOID_KEY = "alasio-window-controls-avoid";

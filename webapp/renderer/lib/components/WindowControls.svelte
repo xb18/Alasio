@@ -23,38 +23,38 @@
   }
 </script>
 
-<div class="flex" style="-webkit-app-region: no-drag">
+<div class="flex items-center gap-1 pr-1.5" style="-webkit-app-region: no-drag">
   <button
     onclick={handleHide}
-    class="hover:bg-accent hover:text-accent-foreground flex h-12 w-12 items-center justify-center transition-colors"
+    class="hover:bg-accent hover:text-accent-foreground flex h-9 w-9 items-center justify-center rounded-md transition-colors"
     title="Hide to tray"
   >
-    <Minimize2 size={16} />
+    <Minimize2 class="h-4 w-4" strokeWidth={1.5} />
   </button>
   <button
     onclick={handleMinimize}
-    class="hover:bg-accent hover:text-accent-foreground flex h-12 w-12 items-center justify-center transition-colors"
+    class="hover:bg-accent hover:text-accent-foreground flex h-9 w-9 items-center justify-center rounded-md transition-colors"
     title="Minimize"
   >
-    <Minus size={16} />
+    <Minus class="h-4 w-4" strokeWidth={1.5} />
   </button>
   <button
     onclick={handleMaximize}
-    class="hover:bg-accent hover:text-accent-foreground flex h-12 w-12 items-center justify-center transition-colors"
+    class="hover:bg-accent hover:text-accent-foreground flex h-9 w-9 items-center justify-center rounded-md transition-colors"
     title="Maximize"
   >
     {#if isMaximized}
-      <Copy size={14} />
+      <Copy class="h-4 w-4" strokeWidth={1.5} />
     {:else}
-      <Square size={14} />
+      <Square class="h-4 w-4" strokeWidth={1.5} />
     {/if}
   </button>
   <button
     onclick={handleClose}
-    class="hover:bg-destructive hover:text-destructive-foreground flex h-12 w-12 items-center justify-center transition-colors"
+    class="hover:bg-destructive hover:text-destructive-foreground flex h-9 w-9 items-center justify-center rounded-md transition-colors"
     title="Close"
   >
-    <X size={16} />
+    <X class="h-4 w-4" strokeWidth={1.5} />
   </button>
 </div>
 
