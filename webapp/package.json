@@ -6,7 +6,7 @@
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && tsx scripts/pack-asar.ts",
     "package": "vite build && electron-builder && tsx scripts/electron-cleanup.ts",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -20,6 +20,7 @@
   "devDependencies": {
     "@csstools/postcss-color-mix-function": "^3.0.12",
     "@csstools/postcss-oklab-function": "^4.0.12",
+    "@electron/asar": "^3.4.1",
     "@internationalized/date": "^3.12.3",
     "@lucide/svelte": "^1.33.0",
     "@sveltejs/adapter-static": "3.0.10",

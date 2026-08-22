@@ -21,6 +21,9 @@ importers:
       '@csstools/postcss-oklab-function':
         specifier: ^4.0.12
         version: 4.0.12(postcss@8.5.15)
+      '@electron/asar':
+        specifier: ^3.4.1
+        version: 3.4.1
       '@internationalized/date':
         specifier: ^3.12.3
         version: 3.12.3
