@@ -1,11 +1,32 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import type { Component } from "svelte";
   import { page } from "$app/state";
   import { useSharedState } from "$lib/useSharedState.svelte";
   import { i18nState } from "$lib/i18n/state.svelte";
   import TitleBar from "$lib/components/TitleBar.svelte";
   import "../app.css";
 
+  let { children } = $props();
+
   const sharedState = useSharedState();
+
+  // Dev-only route switcher (bottom-right corner). Loaded lazily through a
+  // dynamic import guarded by import.meta.env.DEV: at build time the
+  // condition is replaced with the literal false, so the branch — and the
+  // module itself — is eliminated and never bundled into production builds.
+  let DevRouteSwitcher: Component | undefined = $state();
+
+  onMount(() => {
+    if (!import.meta.env.DEV) return;
+    import("$lib/components/DevRouteSwitcher.svelte")
+      .then((mod) => {
+        DevRouteSwitcher = mod.default;
+      })
+      .catch((err) => {
+        console.error("Failed to load DevRouteSwitcher:", err);
+      });
+  });
 
   // Keep the renderer i18n state in sync with the host's display language.
   // The host (main process AppState) is the single source of truth.
@@ -30,4 +51,10 @@
 <!-- The embedded web app (/app) provides its own header, so the title bar
      becomes a floating overlay (drag strip + window controls) there. -->
 <TitleBar floating={page.route.id === "/app"} />
-<slot />
+{@render children()}
+
+<!-- Dev-only launcher in the bottom-right corner. The module is only loaded
+     (and only bundled) in dev builds; see the dynamic import above. -->
+{#if DevRouteSwitcher}
+  <DevRouteSwitcher />
+{/if}

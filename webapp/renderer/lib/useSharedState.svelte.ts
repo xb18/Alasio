@@ -9,6 +9,26 @@ const ROUTE_TO_PATH: Record<string, string> = {
   error: "/error",
 };
 
+// Dev-only route preview: when the URL is on a startup route, the URL
+// becomes the source of truth and shared-state navigation is suspended, so
+// any launch page can be previewed without preparing its real conditions
+// (broken config, missing python, failed backend...). The error payload can
+// be injected through query params, e.g.
+//   /error?errorKey=BackendStartFailed&errorPath=C%3A%5Cfoo
+// DevRouteSwitcher.svelte builds such URLs from its popover menu.
+function getDevOverride(): { route: string; errorKey?: string; errorPath?: string } | null {
+  if (!import.meta.env.DEV) return null;
+  const path = page.route.id;
+  const route = Object.keys(ROUTE_TO_PATH).find((key) => ROUTE_TO_PATH[key] === path);
+  if (!route) return null;
+  const params = page.url.searchParams;
+  return {
+    route,
+    errorKey: params.get("errorKey") || undefined,
+    errorPath: params.get("errorPath") || undefined,
+  };
+}
+
 // Initial shared state, read synchronously once (module scope, via the
 // preload sendSync bridge) so the very first paint already renders with
 // the host's display theme instead of flashing the light fallback before
@@ -28,6 +48,8 @@ function getInitialSharedState(): any {
 }
 
 function navigateTo(route: string) {
+  // Dev preview: the URL already picks the page, never navigate away from it.
+  if (getDevOverride()) return;
   const path = ROUTE_TO_PATH[route];
   if (path && page.route.id !== path) {
     goto(path);
@@ -71,16 +93,16 @@ export function useSharedState() {
       return state?.backendPort || 22267;
     },
     get route() {
-      return state?.route || "loading";
+      return getDevOverride()?.route || state?.route || "loading";
     },
     get isFirstTimeSetup() {
       return state?.isFirstTimeSetup || false;
     },
     get errorKey() {
-      return state?.errorKey;
+      return getDevOverride()?.errorKey ?? state?.errorKey;
     },
     get errorPath() {
-      return state?.errorPath;
+      return getDevOverride()?.errorPath ?? state?.errorPath;
     },
   };
 }
