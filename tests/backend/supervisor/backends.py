@@ -3,6 +3,19 @@ import time
 
 from alasio.backend.supervisor import Supervisor
 
+# Both the supervisor process (python backends.py) and the backend process
+# (multiprocessing spawn re-runs this module) execute this top-level code.
+# Their stdout/stderr are pipes, not a tty, so Python would block-buffer
+# them: ManagedProcess would not see any log line in time. Line buffering
+# makes every print (including supervisor's mprint) visible immediately,
+# so the tests do not need PYTHONUNBUFFERED.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(line_buffering=True)
+    except (AttributeError, ValueError):
+        # Not a TextIOWrapper or already closed, leave it alone
+        pass
+
 
 class TestSupervisor(Supervisor):
     """测试用的Supervisor子类，根据命令行参数启动不同的后端"""
@@ -23,29 +36,32 @@ class TestSupervisor(Supervisor):
         if backend_type == "normal":
             # 正常启动，无限等待
             TestSupervisor._normal_backend()
+        elif backend_type == "silent":
+            # 正常启动但不发送启动确认消息（靠 startup_timeout 超时确认）
+            TestSupervisor._silent_backend()
         elif backend_type == "immediate_error":
             # 立刻报错
             TestSupervisor._immediate_error_backend()
         elif backend_type == "early_exit":
-            # 5s内退出（2s）
+            # startup_timeout 内退出（启动失败路径）
             TestSupervisor._early_exit_backend()
         elif backend_type == "late_exit":
-            # 5s后退出（8s）
+            # 启动确认后退出（触发重启）
             TestSupervisor._late_exit_backend()
         elif backend_type == "slow_shutdown":
             # 收到stop信号后，延迟退出的后端
             TestSupervisor._slow_shutdown_backend()
         elif backend_type == "restart_2s":
-            # 启动2s后发送restart请求
+            # 启动窗口内发送restart请求
             TestSupervisor._restart_2s_backend()
         elif backend_type == "restart_8s":
-            # 启动8s后发送restart请求
+            # 启动确认后发送restart请求
             TestSupervisor._restart_8s_backend()
         elif backend_type == "stop_2s":
-            # 启动2s后发送stop请求
+            # 启动窗口内发送stop请求
             TestSupervisor._stop_2s_backend()
         elif backend_type == "stop_8s":
-            # 启动8s后发送stop请求
+            # 启动确认后发送stop请求
             TestSupervisor._stop_8s_backend()
         elif backend_type == "crash_after_success":
             # 启动成功后立即崩溃
@@ -58,14 +74,64 @@ class TestSupervisor(Supervisor):
             sys.exit(1)
 
     @staticmethod
+    def _notify_startup_success():
+        """
+        Confirm startup to the supervisor through the pipe.
+
+        The supervisor's recv_loop treats the first backend message as the
+        startup-success signal, so the test backends confirm startup
+        explicitly instead of making every test wait out startup_timeout.
+        The message is not a recognized command: the supervisor logs a
+        warning and keeps running, which is harmless in tests.
+        """
+        import builtins
+        builtins.__mpipe_conn__.send_bytes(b'ok')
+
+    @staticmethod
+    def _silent_backend():
+        """
+        正常启动但不发送启动确认的后端
+
+        真实后端启动时不会主动向 pipe 发送消息，supervisor 只能靠
+        startup_timeout 超时来确认启动成功；这个后端模拟该行为。
+        """
+        import builtins
+        print("[Backend] Silent backend started, waiting indefinitely...")
+
+        conn = builtins.__mpipe_conn__
+        try:
+            # 持续监听pipe消息
+            while True:
+                if conn.poll(timeout=0.5):
+                    msg = conn.recv_bytes()
+                    if msg == b'command:stop':
+                        print("[Backend] Received stop signal, shutting down gracefully")
+                        time.sleep(0.1)
+                        break
+                    else:
+                        print(f"[Backend] Received message: {msg}")
+        except EOFError:
+            print("[Backend] Pipe closed")
+        except KeyboardInterrupt:
+            print("[Backend] Interrupted")
+
+        print("[Backend] Silent backend exiting")
+
+    @staticmethod
     def _normal_backend():
         """正常启动，无限等待的后端"""
         import builtins
         print("[Backend] Normal backend started, waiting indefinitely...")
 
+        conn = builtins.__mpipe_conn__
+        # Simulate a realistic startup delay before confirming startup.
+        # The delay keeps a window where an interrupt arrives before the
+        # startup confirmation (test_graceful_exit_timings case 1).
+        time.sleep(0.5)
+        TestSupervisor._notify_startup_success()
+
         try:
             # 持续监听pipe消息
-            conn = builtins.__mpipe_conn__
             while True:
                 if conn.poll(timeout=0.5):
                     msg = conn.recv_bytes()
@@ -98,26 +164,17 @@ class TestSupervisor(Supervisor):
 
     @staticmethod
     def _late_exit_backend():
-        """启动后8秒退出的后端（大于startup_timeout）"""
-        import builtins
-        print("[Backend] Late exit backend started, will exit in 8 seconds...")
+        """
+        启动成功确认后延迟退出的后端（关闭 pipe 触发 supervisor 重启）
+        """
+        print("[Backend] Late exit backend started, will exit in 1.5 seconds...")
 
-        conn = builtins.__mpipe_conn__
-        start_time = time.time()
-
-        try:
-            while time.time() - start_time < 8:
-                if conn.poll(timeout=0.5):
-                    msg = conn.recv_bytes()
-                    if msg == b'command:stop':
-                        print("[Backend] Received stop signal, shutting down gracefully")
-                        break
-        except EOFError:
-            print("[Backend] Pipe closed")
-        except KeyboardInterrupt:
-            print("[Backend] Interrupted")
-
+        TestSupervisor._notify_startup_success()
+        # Give the supervisor time to finish the startup handshake, then
+        # exit and close the pipe so it observes the unexpected exit.
+        time.sleep(1.5)
         print("[Backend] Late exit backend exiting")
+        sys.exit(0)
 
     @staticmethod
     def _slow_shutdown_backend():
@@ -125,13 +182,16 @@ class TestSupervisor(Supervisor):
         import builtins
         print("[Backend] Slow shutdown backend started...")
         conn = builtins.__mpipe_conn__
+        TestSupervisor._notify_startup_success()
         try:
             while True:
                 if conn.poll(timeout=0.5):
                     msg = conn.recv_bytes()
                     if msg == b'command:stop':
-                        print("[Backend] Received stop signal, ignoring for 10s...")
-                        time.sleep(10)
+                        # Long enough for the test to send the second
+                        # interrupt while the backend is still alive
+                        print("[Backend] Received stop signal, ignoring for 3s...")
+                        time.sleep(3)
                         print("[Backend] Finally exiting")
                         break
         except EOFError:
@@ -139,11 +199,16 @@ class TestSupervisor(Supervisor):
 
     @staticmethod
     def _restart_2s_backend():
-        """启动2s后发送restart请求"""
+        """
+        启动后很快发送restart请求（在 startup_timeout 窗口内到达）
+        """
         import builtins
         print("[Backend] Restart 2s backend started...")
         conn = builtins.__mpipe_conn__
-        time.sleep(2)
+        # No startup confirmation: the restart request arrives while
+        # recv_loop is still in the startup window, and the message itself
+        # confirms startup success
+        time.sleep(0.5)
         print("[Backend] Sending restart request")
         conn.send_bytes(b'command:restart')
         print("[Backend] Exiting after restart request")
@@ -151,11 +216,12 @@ class TestSupervisor(Supervisor):
 
     @staticmethod
     def _restart_8s_backend():
-        """启动8s后发送restart请求"""
+        """启动确认后稍后发送restart请求"""
         import builtins
         print("[Backend] Restart 8s backend started...")
         conn = builtins.__mpipe_conn__
-        time.sleep(8)
+        TestSupervisor._notify_startup_success()
+        time.sleep(1.5)
         print("[Backend] Sending restart request")
         conn.send_bytes(b'command:restart')
         print("[Backend] Exiting after restart request")
@@ -163,11 +229,16 @@ class TestSupervisor(Supervisor):
 
     @staticmethod
     def _stop_2s_backend():
-        """启动2s后发送stop请求"""
+        """
+        启动后很快发送stop请求（在 startup_timeout 窗口内到达）
+        """
         import builtins
         print("[Backend] Stop 2s backend started...")
         conn = builtins.__mpipe_conn__
-        time.sleep(2)
+        # No startup confirmation: the stop request arrives while recv_loop
+        # is still in the startup window, and the message itself confirms
+        # startup success
+        time.sleep(0.5)
         print("[Backend] Sending stop request")
         conn.send_bytes(b'command:stop')
         # Wait for supervisor to send command:stop back
@@ -184,11 +255,12 @@ class TestSupervisor(Supervisor):
 
     @staticmethod
     def _stop_8s_backend():
-        """启动8s后发送stop请求"""
+        """启动确认后稍后发送stop请求"""
         import builtins
         print("[Backend] Stop 8s backend started...")
         conn = builtins.__mpipe_conn__
-        time.sleep(8)
+        TestSupervisor._notify_startup_success()
+        time.sleep(1.5)
         print("[Backend] Sending stop request")
         conn.send_bytes(b'command:stop')
         # Wait for supervisor to send command:stop back
@@ -236,6 +308,7 @@ class TestSupervisor(Supervisor):
         set_project_root(PathStr.new(os.path.dirname(__file__)).uppath(3))
 
         print("[Backend] Prefs backend started, waiting for commands...")
+        TestSupervisor._notify_startup_success()
 
         async def main():
             trio_token = trio.lowlevel.current_trio_token()
@@ -259,7 +332,7 @@ class TestSupervisor(Supervisor):
 
 if __name__ == "__main__":
     supervisor = TestSupervisor(
-        restart_delay=3,
+        restart_delay=1,
         max_restart_attempts=3,
         restart_window=60,
         startup_timeout=5.0,
