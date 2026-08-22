@@ -9,6 +9,12 @@ electronDist: node_modules/electron/dist
 files:
   - dist/**/*
   - package.json
+  # All main-process dependencies (js-yaml, tree-kill) are bundled into
+  # dist by vite, so node_modules must not be copied into the packaged app.
+  # Declared in "dependencies" only to satisfy electron-builder's node
+  # module collection, this exclusion keeps the asar identical to a
+  # dependency-free build.
+  - '!node_modules{,/**/*}'
 electronLanguages:
   - en-US
 win:

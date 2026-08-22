@@ -2,15 +2,20 @@
   "name": "alasio",
   "version": "1.0.0",
   "description": "Alasio Electron Application",
+  "author": "LmeSzinc",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "package": "vite build && electron-builder",
+    "package": "vite build && electron-builder && tsx scripts/electron-cleanup.ts",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "i18ngen": "tsx scripts/i18n/cli.ts"
+  },
+  "dependencies": {
+    "js-yaml": "^4.3.1",
+    "tree-kill": "^1.2.2"
   },
   "devDependencies": {
     "@csstools/postcss-color-mix-function": "^3.0.12",
@@ -34,7 +39,6 @@
     "electron-builder": "^26.15.3",
     "fast-glob": "^3.3.3",
     "fs-extra": "^11.4.0",
-    "js-yaml": "^4.3.1",
     "postcss": "8.5.15",
     "postcss-media-minmax": "^5.0.0",
     "postcss-nesting": "^13.0.2",
@@ -47,7 +51,6 @@
     "tailwind-merge": "^3.6.0",
     "tailwind-variants": "^3.3.1",
     "tailwindcss": "^4.3.3",
-    "tree-kill": "^1.2.2",
     "tsx": "^4.23.12",
     "tw-animate-css": "^1.4.0",
     "typescript": "^5.9.3",
