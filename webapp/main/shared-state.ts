@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import {
   IPC_SHARED_STATE_GET,
   IPC_SHARED_STATE_GET_SYNC,

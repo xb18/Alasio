@@ -1,9 +1,9 @@
 <script lang="ts">
+  import FlaskConical from "@lucide/svelte/icons/flask-conical";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import FlaskConical from "@lucide/svelte/icons/flask-conical";
-  import * as Popover from "$lib/components/ui/popover";
   import { buttonVariants } from "$lib/components/ui/button/button.svelte";
+  import * as Popover from "$lib/components/ui/popover";
   import { cn } from "$lib/utils";
 
   // Dev-only launcher: preview any startup route without preparing the real

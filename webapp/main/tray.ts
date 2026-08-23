@@ -1,5 +1,5 @@
-import { Tray, Menu, nativeImage, app, BrowserWindow } from "electron";
 import * as path from "path";
+import { BrowserWindow, Menu, Tray, app, nativeImage } from "electron";
 import { setLang, t } from "./i18ngen";
 
 let tray: Tray | null = null;

@@ -1,6 +1,5 @@
-import { BrowserWindow, app, ipcMain } from "electron";
 import * as path from "path";
-import { appState } from "./app-state";
+import { BrowserWindow, app, ipcMain } from "electron";
 import {
   IPC_CONFIRM_CLOSE,
   IPC_SHUTDOWN_STAGE,
@@ -9,7 +8,8 @@ import {
   IPC_WINDOW_MAXIMIZE,
   IPC_WINDOW_MINIMIZE,
 } from "../shared/ipc";
-import { shutdownBackend, ShutdownStage } from "./backend";
+import { appState } from "./app-state";
+import { ShutdownStage, shutdownBackend } from "./backend";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;

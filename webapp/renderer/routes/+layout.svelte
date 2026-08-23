@@ -2,9 +2,9 @@
   import { onMount } from "svelte";
   import type { Component } from "svelte";
   import { page } from "$app/state";
-  import { useSharedState } from "$lib/useSharedState.svelte";
-  import { i18nState } from "$lib/i18n/state.svelte";
   import TitleBar from "$lib/components/TitleBar.svelte";
+  import { i18nState } from "$lib/i18n/state.svelte";
+  import { useSharedState } from "$lib/useSharedState.svelte";
   import "../app.css";
 
   let { children } = $props();

@@ -1,8 +1,8 @@
 import { ChildProcess, spawn } from "child_process";
 import { BrowserWindow } from "electron";
+import kill from "tree-kill";
 import { IPC_BACKEND_LOG, IPC_BACKEND_READY } from "../shared/ipc";
 import { appState } from "./app-state";
-import kill from "tree-kill";
 
 export enum ShutdownStage {
   WaitingGraceful = "waiting",

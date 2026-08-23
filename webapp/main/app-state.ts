@@ -1,7 +1,7 @@
 import { app, nativeTheme } from "electron";
 import { sendStdinCommand } from "./backend";
-import { DEFAULT_LANG, SUPPORTED_LANGS } from "./i18ngen";
 import type { ConfigError } from "./config";
+import { DEFAULT_LANG, SUPPORTED_LANGS } from "./i18ngen";
 
 // Host-level language values: 'system' or one of the supported languages.
 // The webapp main process is the single source of truth; the backend only

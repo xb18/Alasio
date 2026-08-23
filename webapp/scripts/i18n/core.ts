@@ -1,6 +1,6 @@
-import fs from "fs-extra";
 import path from "path";
 import glob from "fast-glob";
+import fs from "fs-extra";
 import { DROPPED_SUFFIX } from "../svelte-drop-dev-page/files.ts";
 import { type I18nConfig, resolvePath } from "./config.ts";
 
@@ -333,13 +333,20 @@ export class I18nGenerator {
       }
     }
 
-    const langVars = this.config.languages.map(toVar);
+    const langVars = this.config.languages.map(toVar).sort();
+    // Sort langVars alphabetically so the generated import line matches
+    // prettier's importOrderSortSpecifiers ordering; the config order is
+    // preserved everywhere else (SUPPORTED_LANGS, fallback, if-chains).
     // Svelte mode reads the runes state directly; node mode calls getLang()
     const langRef = this.config.mode === "node" ? "getLang()" : "i18nState.l";
+    const stateImport = `import { ${this.config.mode === "node" ? "getLang" : "i18nState"} } from "${this.config.stateModule}";`;
+    const constImport = `import { ${langVars.join(", ")} } from "./constants";`;
     const lines = [
       `// Auto-generated module: ${mod}`,
-      `import { ${this.config.mode === "node" ? "getLang" : "i18nState"} } from "${this.config.stateModule}";`,
-      `import { ${langVars.join(", ")} } from "./constants";`,
+      // Keep imports in prettier's importOrder: the svelte-mode state module
+      // is a `$lib` alias (ranked above relative imports), while in node mode
+      // both `./constants` and `./state` are relative imports sorted by path.
+      ...(this.config.mode === "node" ? [constImport, stateImport] : [stateImport, constImport]),
       "",
     ];
 

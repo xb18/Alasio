@@ -2,7 +2,11 @@
   "useTabs": false,
   "singleQuote": false,
   "printWidth": 120,
-  "plugins": ["prettier-plugin-svelte", "prettier-plugin-tailwindcss"],
+  "plugins": [
+    "prettier-plugin-svelte",
+    "@trivago/prettier-plugin-sort-imports",
+    "prettier-plugin-tailwindcss"
+  ],
   "overrides": [
     {
       "files": "*.svelte",
@@ -10,5 +14,13 @@
         "parser": "svelte"
       }
     }
-  ]
+  ],
+  "importOrder": [
+    "<BUILTIN_MODULES>",
+    "<THIRD_PARTY_MODULES>",
+    "^@lucide/svelte/(.*)$",
+    "^\\$(lib|src|app)/(.*)$",
+    "^[./]"
+  ],
+  "importOrderSortSpecifiers": true
 }

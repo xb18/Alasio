@@ -1,7 +1,7 @@
-import { app, protocol, net } from "electron";
-import * as path from "path";
 import * as fs from "fs";
+import * as path from "path";
 import { pathToFileURL } from "url";
+import { app, net, protocol } from "electron";
 
 // Electron 25+ only: protocol.handle() with a fetch-style handler.
 type HandleProtocol = (scheme: string, handler: (request: Request) => Promise<Response> | Response) => void;

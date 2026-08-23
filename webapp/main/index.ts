@@ -1,13 +1,13 @@
-import { app, ipcMain } from "electron";
 import * as path from "path";
-import { loadConfig } from "./config";
-import { appState } from "./app-state";
-import { initSharedState, setRoute, setupSharedStateIPC, setMainWindow as setSharedStateWindow } from "./shared-state";
-import { createWindow, setupWindowIPC, getMainWindow } from "./window";
-import { createTray, setMainWindow as setTrayWindow } from "./tray";
-import { startBackend, setMainWindow as setBackendWindow } from "./backend";
+import { app, ipcMain } from "electron";
 import { IPC_BACKEND_START } from "../shared/ipc";
+import { appState } from "./app-state";
+import { setMainWindow as setBackendWindow, startBackend } from "./backend";
+import { loadConfig } from "./config";
 import { registerAppProtocol } from "./protocol";
+import { initSharedState, setRoute, setMainWindow as setSharedStateWindow, setupSharedStateIPC } from "./shared-state";
+import { createTray, setMainWindow as setTrayWindow } from "./tray";
+import { createWindow, getMainWindow, setupWindowIPC } from "./window";
 
 // Disable GPU and configure Electron
 app.disableHardwareAcceleration();

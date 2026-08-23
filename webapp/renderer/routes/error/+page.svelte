@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { useSharedState } from "$lib/useSharedState.svelte";
   import { t } from "$lib/i18n";
+  import { useSharedState } from "$lib/useSharedState.svelte";
 
   const sharedState = useSharedState();
 

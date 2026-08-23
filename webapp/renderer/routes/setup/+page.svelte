@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { useSharedState } from "$lib/useSharedState.svelte";
-  import { setLanguage } from "$lib/i18n/state.svelte";
   import { t } from "$lib/i18n";
+  import { setLanguage } from "$lib/i18n/state.svelte";
+  import { useSharedState } from "$lib/useSharedState.svelte";
 
   const sharedState = useSharedState();
   // Initial selection mirrors the persistent config values (may be 'system');
