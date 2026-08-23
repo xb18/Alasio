@@ -132,6 +132,28 @@ export class I18nGenerator {
   }
 
   /**
+   * Write a generated file only when its content changed.
+   *
+   * Unconditional writes would bump the file mtime even for identical
+   * content; a running dev server would then treat each rewrite as a
+   * module change and trigger spurious HMR updates (e.g. on every
+   * `pnpm run codegen`, which runs i18ngen and svelte-kit sync in a
+   * separate process).
+   *
+   * Args:
+   *     file (str): Target file path
+   *     content (str): Content to write
+   */
+  private async writeIfChanged(file: string, content: string) {
+    try {
+      if (content === (await fs.readFile(file, "utf-8"))) return;
+    } catch {
+      // File does not exist yet: fall through and write it.
+    }
+    await fs.outputFile(file, content);
+  }
+
+  /**
    * Content of the node-mode language state module (state.ts).
    * Generated modules read the current language through getLang().
    */
@@ -384,7 +406,7 @@ export class I18nGenerator {
     });
     lines.push("");
 
-    await fs.outputFile(resolvePath(this.config, this.config.genPath, `${mod}.ts`), lines.join("\n"));
+    await this.writeIfChanged(resolvePath(this.config, this.config.genPath, `${mod}.ts`), lines.join("\n"));
   }
 
   private async updateEntryFiles(activeSet: Set<string>) {
@@ -400,7 +422,7 @@ export class I18nGenerator {
       `export const DEFAULT_LANG = ${toVar(this.config.languages[0])};`,
       "",
     ];
-    await fs.outputFile(resolvePath(this.config, this.config.genPath, "constants.ts"), constLines.join("\n"));
+    await this.writeIfChanged(resolvePath(this.config, this.config.genPath, "constants.ts"), constLines.join("\n"));
 
     // index.ts
     const lines = [
@@ -414,11 +436,11 @@ export class I18nGenerator {
       ...(this.config.mode === "node" ? [`export { setLang, getLang } from "./state";`] : []),
       "",
     ];
-    await fs.outputFile(resolvePath(this.config, this.config.genPath, "index.ts"), lines.join("\n"));
+    await this.writeIfChanged(resolvePath(this.config, this.config.genPath, "index.ts"), lines.join("\n"));
 
     // Node mode: (re)generate the language state module
     if (this.config.mode === "node") {
-      await fs.outputFile(resolvePath(this.config, this.config.genPath, "state.ts"), this.stateModuleContent());
+      await this.writeIfChanged(resolvePath(this.config, this.config.genPath, "state.ts"), this.stateModuleContent());
     }
   }
 

@@ -75,7 +75,6 @@ export function svelteDropDevPage(options: SvelteDropDevPageOptions = {}): Plugi
   const routesDir = options.routesDir ?? "src/routes";
 
   let command: "build" | "serve" = "serve";
-  let ssr = false;
   let routesRoot = "";
 
   return {
@@ -112,15 +111,17 @@ export function svelteDropDevPage(options: SvelteDropDevPageOptions = {}): Plugi
 
     configResolved(config) {
       command = config.command;
-      // build.ssr is boolean | string; any non-false value means an SSR pass
-      ssr = config.build.ssr !== false;
       routesRoot = path.resolve(config.root, routesDir);
     },
 
     closeBundle() {
-      // Vite build runs two passes (client + ssr); restore the dropped
-      // files only after the last one, when the build output is complete.
-      if (command !== "build" || !ssr) return;
+      // Vite build may run two passes (client + ssr); restore the dropped
+      // files on every pass. Restoring is idempotent: the config hook of
+      // the next pass re-drops the marked files, and the final pass ends
+      // with every file restored. A pure-SPA build (adapter-static
+      // fallback, build.ssr === false) runs a single pass only, so it
+      // must not be skipped either.
+      if (command !== "build") return;
       const restored = restoreDroppedRoutes(routesRoot);
       if (restored.length > 0) {
         this.info(`[svelte-drop-dev-page] restored ${restored.length} route file(s) after build`);

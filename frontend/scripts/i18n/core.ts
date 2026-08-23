@@ -124,6 +124,28 @@ export class I18nGenerator {
     await fs.outputFile(indexPath, indexContent);
   }
 
+  /**
+   * Write a generated file only when its content changed.
+   *
+   * Unconditional writes would bump the file mtime even for identical
+   * content; a running dev server would then treat each rewrite as a
+   * module change and trigger spurious HMR updates (e.g. on every
+   * `pnpm run codegen`, which runs i18ngen and svelte-kit sync in a
+   * separate process).
+   *
+   * Args:
+   *     file (str): Target file path
+   *     content (str): Content to write
+   */
+  private async writeIfChanged(file: string, content: string) {
+    try {
+      if (content === (await fs.readFile(file, "utf-8"))) return;
+    } catch {
+      // File does not exist yet: fall through and write it.
+    }
+    await fs.outputFile(file, content);
+  }
+
   async handleSourceUpdate(filePath: string) {
     console.log(`[i18n] Source update detected: ${filePath}`);
     const affected = await this.scanFile(filePath);
@@ -349,7 +371,7 @@ export class I18nGenerator {
     });
     lines.push("");
 
-    await fs.outputFile(resolvePath(this.config.genPath, `${mod}.ts`), lines.join("\n"));
+    await this.writeIfChanged(resolvePath(this.config.genPath, `${mod}.ts`), lines.join("\n"));
   }
 
   private async updateEntryFiles(activeSet: Set<string>) {
@@ -365,7 +387,7 @@ export class I18nGenerator {
       `export const DEFAULT_LANG = ${toVar(this.config.languages[0])};`,
       "",
     ];
-    await fs.outputFile(resolvePath(this.config.genPath, "constants.ts"), constLines.join("\n"));
+    await this.writeIfChanged(resolvePath(this.config.genPath, "constants.ts"), constLines.join("\n"));
 
     // index.ts
     const lines = [
@@ -379,7 +401,7 @@ export class I18nGenerator {
       "",
     ];
 
-    await fs.outputFile(resolvePath(this.config.genPath, "index.ts"), lines.join("\n"));
+    await this.writeIfChanged(resolvePath(this.config.genPath, "index.ts"), lines.join("\n"));
   }
 
   private async removeModule(mod: string) {
