@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { cn } from "$lib/utils.js";
 	import { Popover as PopoverPrimitive } from "bits-ui";
+	import { cn, type WithoutChildrenOrChild } from "$lib/utils.js";
+	import PopoverPortal from "./popover-portal.svelte";
+	import type { ComponentProps } from "svelte";
 
 	let {
 		ref = $bindable(null),
@@ -10,21 +12,20 @@
 		portalProps,
 		...restProps
 	}: PopoverPrimitive.ContentProps & {
-		portalProps?: PopoverPrimitive.PortalProps;
+		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof PopoverPortal>>;
 	} = $props();
 </script>
 
-<!-- MODIFIED: remove animation -->
-<PopoverPrimitive.Portal {...portalProps}>
+<PopoverPortal {...portalProps}>
 	<PopoverPrimitive.Content
 		bind:ref
 		data-slot="popover-content"
 		{sideOffset}
 		{align}
 		class={cn(
-			"bg-popover text-popover-foreground data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-(--bits-popover-content-transform-origin) outline-hidden z-50 w-72 rounded-md border p-4 shadow-md",
+			"flex flex-col gap-4 rounded-md bg-popover p-4 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 z-50 w-72 origin-(--transform-origin) outline-hidden",
 			className
 		)}
 		{...restProps}
 	/>
-</PopoverPrimitive.Portal>
+</PopoverPortal>
