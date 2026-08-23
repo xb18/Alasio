@@ -41,7 +41,7 @@
       <Card.Title class="flex-1 text-2xl font-bold">{title}</Card.Title>
     </div>
     {#if help}
-      <Card.Description>
+      <Card.Description class="text-xs">
         <I18nText text={help} />
       </Card.Description>
     {/if}
@@ -50,12 +50,18 @@
     {/if}
   </Card.Header>
   <!-- Group content -->
-  <Card.Content class="flex flex-col gap-y-2 pt-2">
+  <Card.Content class="arg-card-content flex flex-col gap-y-2 pt-2">
     {@render children()}
   </Card.Content>
 </Card.Root>
 
 <style>
+  /* Hide the content area when a card has no group args, otherwise the 8px
+     padding-top leaves a visible gap between the header and the card bottom */
+  :global(.arg-card-content:empty) {
+    display: none;
+  }
+
   @keyframes flash-primary {
     0%,
     40%,
