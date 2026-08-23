@@ -163,24 +163,22 @@
     </Popover.Trigger>
 
     <Popover.Content class="w-48 p-1" align="end">
-      <div class="space-y-1">
-        {#each modeOptions as option}
-          {@const variant = previewMode === option.value ? "default" : "ghost"}
-          <Button
-            class="w-full justify-between font-normal"
-            {variant}
-            onclick={() => {
-              onModeChange(option.value);
-              popoverOpen = false;
-            }}
-          >
-            {option.label}
-            {#if previewMode === option.value}
-              <Check class="h-4 w-4" />
-            {/if}
-          </Button>
-        {/each}
-      </div>
+      {#each modeOptions as option}
+        {@const variant = previewMode === option.value ? "default" : "ghost"}
+        <Button
+          class="w-full justify-between font-normal"
+          {variant}
+          onclick={() => {
+            onModeChange(option.value);
+            popoverOpen = false;
+          }}
+        >
+          {option.label}
+          {#if previewMode === option.value}
+            <Check class="h-4 w-4" />
+          {/if}
+        </Button>
+      {/each}
     </Popover.Content>
   </Popover.Root>
 

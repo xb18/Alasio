@@ -64,16 +64,14 @@
   </Popover.Trigger>
 
   <Popover.Content class="w-48 p-1" align="end">
-    <div class="space-y-1">
-      {#each options as opt (opt.value)}
-        {@const variant = i18nState.configLang === opt.value ? "default" : "ghost"}
-        <Button class="w-full justify-between font-normal" {variant} onclick={() => selectLanguage(opt.value)}>
-          {opt.name}
-          {#if i18nState.configLang === opt.value}
-            <Check class="h-4 w-4" />
-          {/if}
-        </Button>
-      {/each}
-    </div>
+    {#each options as opt (opt.value)}
+      {@const variant = i18nState.configLang === opt.value ? "default" : "ghost"}
+      <Button class="w-full justify-between font-normal" {variant} onclick={() => selectLanguage(opt.value)}>
+        {opt.name}
+        {#if i18nState.configLang === opt.value}
+          <Check class="h-4 w-4" />
+        {/if}
+      </Button>
+    {/each}
   </Popover.Content>
 </Popover.Root>

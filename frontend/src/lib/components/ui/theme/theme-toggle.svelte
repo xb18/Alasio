@@ -48,23 +48,21 @@
   </Popover.Trigger>
 
   <Popover.Content class="w-48 p-1" align="end">
-    <div class="space-y-1">
-      {#each themeOptions as opt}
-        {@const Icon = opt.icon}
-        <Button
-          class="w-full justify-between font-normal"
-          variant={userPrefersMode.current === opt.value ? "default" : "ghost"}
-          onclick={() => selectTheme(opt.value)}
-        >
-          <span class="flex items-center gap-2">
-            <Icon class="h-4 w-4" strokeWidth={1.5} />
-            {opt.name}
-          </span>
-          {#if userPrefersMode.current === opt.value}
-            <Check class="h-4 w-4" />
-          {/if}
-        </Button>
-      {/each}
-    </div>
+    {#each themeOptions as opt}
+      {@const Icon = opt.icon}
+      <Button
+        class="w-full justify-between font-normal"
+        variant={userPrefersMode.current === opt.value ? "default" : "ghost"}
+        onclick={() => selectTheme(opt.value)}
+      >
+        <span class="flex items-center gap-2">
+          <Icon class="h-4 w-4" strokeWidth={1.5} />
+          {opt.name}
+        </span>
+        {#if userPrefersMode.current === opt.value}
+          <Check class="h-4 w-4" />
+        {/if}
+      </Button>
+    {/each}
   </Popover.Content>
 </Popover.Root>
