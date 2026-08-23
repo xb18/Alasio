@@ -1,6 +1,6 @@
 import { onDestroy, untrack } from "svelte";
-import { websocketClient, WebsocketManager } from "./client.svelte";
-import { createResilientRpc, createRpc, type Rpc, type RpcOptions } from "./rpc.svelte";
+import { WebsocketManager, websocketClient } from "./client.svelte";
+import { type Rpc, type RpcOptions, createResilientRpc, createRpc } from "./rpc.svelte";
 
 export type RpcFactory = (options?: RpcOptions) => Rpc;
 export type TopicLifespan<T = any> = {

@@ -2,7 +2,7 @@ import { browser } from "$app/environment";
 import { goto, invalidateAll } from "$app/navigation";
 import { deepDel, deepSet } from "./deep";
 import type { RequestEvent, ResponseEvent } from "./event";
-import { createRpc, type RpcCallbacks, type RpcOptions } from "./rpc.svelte";
+import { type RpcCallbacks, type RpcOptions, createRpc } from "./rpc.svelte";
 
 /**
  * Configuration options for the WebsocketManager.

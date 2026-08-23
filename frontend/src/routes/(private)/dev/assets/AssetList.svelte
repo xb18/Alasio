@@ -1,11 +1,11 @@
 <script lang="ts">
   import { ScrollArea } from "$lib/components/ui/scroll-area";
+  import type { TopicLifespan } from "$lib/ws";
   import AssetContextMenu from "./AssetContextMenu.svelte";
   import AssetDisplay from "./AssetDisplay.svelte";
-  import { assetSelection, type AssetSelectionItem } from "./selected.svelte";
   import TemplateImage from "./TemplateImage.svelte";
+  import { type AssetSelectionItem, assetSelection } from "./selected.svelte";
   import type { FolderResponse, MetaAsset } from "./types";
-  import type { TopicLifespan } from "$lib/ws";
 
   let {
     assetList,

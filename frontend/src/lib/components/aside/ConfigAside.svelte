@@ -1,11 +1,11 @@
 <script lang="ts">
+  import Settings from "@lucide/svelte/icons/settings";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils.js";
   import { useTopic } from "$lib/ws";
-  import Settings from "@lucide/svelte/icons/settings";
   import ConfigItem from "./ConfigItem.svelte";
   import type { ConfigLike, ConfigTopicLike, WORKER_STATE } from "./types";
 
@@ -14,11 +14,11 @@
   const workerClient = useTopic<Record<string, WORKER_STATE> | undefined>("Worker");
 
   // props
-  type $$props = {
+  type $props = {
     class?: string;
     onNavigate?: () => void;
   };
-  let { class: className, onNavigate }: $$props = $props();
+  let { class: className, onNavigate }: $props = $props();
 
   // Easter egg spinning
   const afspin = $derived.by(() => {

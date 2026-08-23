@@ -1,10 +1,10 @@
 <script lang="ts">
   import { elementSize } from "$lib/use/size.svelte";
+  import { cn } from "$lib/utils";
   import Dashboard from "./Dashboard.svelte";
   import Log from "./Log.svelte";
-  import Progress from "./Progress.svelte";
   import Preview from "./Preview.svelte";
-  import { cn } from "$lib/utils";
+  import Progress from "./Progress.svelte";
 
   let { data } = $props();
   const config_name = $derived(data.config_name);

@@ -1,4 +1,4 @@
-import { getContext, setContext, untrack, type Snippet } from "svelte";
+import { type Snippet, getContext, setContext, untrack } from "svelte";
 
 // We can render content using `{@render children()}`, but impossibe to render another snippet from child page like `{@render children.nav()}`.
 // So here comes the magic to store the nav snippet in global context.

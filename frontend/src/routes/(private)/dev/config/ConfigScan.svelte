@@ -1,13 +1,13 @@
 <script lang="ts">
+  import Loader2 from "@lucide/svelte/icons/loader-circle";
+  import Plus from "@lucide/svelte/icons/plus";
   import type { ConfigTopicLike } from "$lib/components/aside/types";
-  import { DndProvider, applyDnd, type DndEndCallbackDetail } from "$lib/components/dnd";
+  import { type DndEndCallbackDetail, DndProvider, applyDnd } from "$lib/components/dnd";
   import { Button } from "$lib/components/ui/button";
   import { Help } from "$lib/components/ui/help";
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils";
   import { useTopic } from "$lib/ws";
-  import Loader2 from "@lucide/svelte/icons/loader-circle";
-  import Plus from "@lucide/svelte/icons/plus";
   import type { ConfigGroupData } from "./ConfigGroup.svelte";
   import ConfigGroup from "./ConfigGroup.svelte";
   import type { Config } from "./ConfigItem.svelte";
@@ -18,10 +18,10 @@
   import DialogRename from "./DialogRename.svelte";
 
   // props
-  type $$props = {
+  type $props = {
     class?: string;
   };
-  const { class: className }: $$props = $props();
+  const { class: className }: $props = $props();
 
   // SINGLE SOURCE OF TRUTH (from server)
   const topicClient = useTopic<ConfigTopicLike>("ConfigScan");

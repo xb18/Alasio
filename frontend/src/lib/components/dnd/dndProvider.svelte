@@ -1,25 +1,25 @@
 <script lang="ts">
   import {
+    type Active,
     DndContext,
+    type DragEndEvent,
+    type DragOverEvent,
     DragOverlay,
+    type DragStartEvent,
+    type DropAnimation,
     KeyboardSensor,
     MouseSensor,
+    type Over,
     TouchSensor,
     useSensor,
     useSensors,
-    type Active,
-    type DragEndEvent,
-    type DragOverEvent,
-    type DragStartEvent,
-    type DropAnimation,
-    type Over,
   } from "@dnd-kit-svelte/core";
   import type { Snippet } from "svelte";
   import {
+    type CollisionWithEdge,
     createClosestEdgeCollision,
     horizontalDistance,
     verticalDistance,
-    type CollisionWithEdge,
   } from "./collision";
 
   // --- Type Definitions ---

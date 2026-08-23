@@ -1,6 +1,6 @@
 // Run with: tsx scripts/i18n/cli.ts
-import { I18nGenerator } from "./core.ts";
 import { i18nConfig } from "./config.ts";
+import { I18nGenerator } from "./core.ts";
 
 const cliGenerator = new I18nGenerator(i18nConfig);
 

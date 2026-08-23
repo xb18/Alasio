@@ -1,11 +1,11 @@
 <script lang="ts">
+  import { onDestroy, untrack } from "svelte";
   import { goto } from "$app/navigation";
   import type { ConfigTopicLike, WORKER_STATE } from "$lib/components/aside/types";
   import { Scheduler, type TaskQueueData, type TaskQueueI18n } from "$lib/components/scheduler";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { NavContext } from "$lib/slotcontext.svelte";
   import { useTopic } from "$lib/ws";
-  import { onDestroy, untrack } from "svelte";
   import ConfigNav from "./ConfigNav.svelte";
   import { uiState as ui } from "./state.svelte";
 

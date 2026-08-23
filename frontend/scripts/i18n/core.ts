@@ -1,6 +1,6 @@
-import fs from "fs-extra";
 import path from "path";
 import glob from "fast-glob";
+import fs from "fs-extra";
 import { DROPPED_SUFFIX } from "../svelte-drop-dev-page/files.ts";
 import { type I18nConfig, resolvePath } from "./config.ts";
 
@@ -304,7 +304,10 @@ export class I18nGenerator {
       }
     }
 
-    const langVars = this.config.languages.map(toVar);
+    const langVars = this.config.languages.map(toVar).sort();
+    // Sort langVars alphabetically so the generated import line matches
+    // prettier's importOrderSortSpecifiers ordering; the config order is
+    // preserved everywhere else (SUPPORTED_LANGS, fallback, if-chains).
     const lines = [
       `// Auto-generated module: ${mod}`,
       `import { i18nState } from "$lib/i18n/state.svelte";`,

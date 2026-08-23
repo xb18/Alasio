@@ -2,9 +2,9 @@
   import { cn } from "$lib/utils";
   import type { TopicLifespan } from "$lib/ws";
   import AssetList from "./AssetList.svelte";
-  import { assetSelection, templateSelection } from "./selected.svelte";
   import TemplateList from "./TemplateList.svelte";
-  import { createMetaAssetWithDefaults, type FolderResponse, type MetaAsset } from "./types";
+  import { assetSelection, templateSelection } from "./selected.svelte";
+  import { type FolderResponse, type MetaAsset, createMetaAssetWithDefaults } from "./types";
 
   let {
     topicClient,

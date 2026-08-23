@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
   import {
     Breadcrumb,
     BreadcrumbItem,
@@ -7,7 +8,6 @@
     BreadcrumbPage,
     BreadcrumbSeparator,
   } from "$lib/components/ui/breadcrumb";
-  import FolderOpen from "@lucide/svelte/icons/folder-open";
   import { cn } from "$lib/utils";
 
   let {

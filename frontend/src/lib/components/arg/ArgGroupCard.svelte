@@ -1,7 +1,7 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import * as Card from "$lib/components/ui/card";
   import { cn } from "$lib/utils";
-  import type { Snippet } from "svelte";
   import I18nText from "./I18nText.svelte";
 
   type Props = {

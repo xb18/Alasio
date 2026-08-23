@@ -1,7 +1,7 @@
 <script lang="ts" module>
-  import { cn, type WithElementRef } from "$lib/utils.js";
   import type { HTMLAttributes } from "svelte/elements";
-  import { tv, type VariantProps } from "tailwind-variants";
+  import { type VariantProps, tv } from "tailwind-variants";
+  import { type WithElementRef, cn } from "$lib/utils.js";
 
   export const indicatorVariants = tv({
     base: [

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import LogOut from "@lucide/svelte/icons/log-out";
+  import { goto } from "$app/navigation";
   import LayoutHorizontalLike from "$lib/components/arg/LayoutHorizontalLike.svelte";
   import type { ArgData } from "$lib/components/arg/utils.svelte";
   import { Button } from "$lib/components/ui/button";

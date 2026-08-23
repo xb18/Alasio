@@ -1,5 +1,5 @@
 import type { ApiResponse } from "./client";
-import type { TResponseMap, Query } from "./queryState";
+import type { Query, TResponseMap } from "./queryState";
 import { QueryLoadingState, QueryResponseState } from "./queryState";
 
 /**

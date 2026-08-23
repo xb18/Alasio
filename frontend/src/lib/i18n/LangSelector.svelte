@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Check from "@lucide/svelte/icons/check";
+  import Languages from "@lucide/svelte/icons/languages";
   import Button from "$lib/components/ui/button/button.svelte";
   import * as Popover from "$lib/components/ui/popover";
   import { i18nState, setLang, t } from "$lib/i18n";
@@ -6,8 +8,6 @@
   import { cn } from "$lib/utils";
   import { useTopic } from "$lib/ws";
   import { SUPPORTED_LANGS } from "$src/i18ngen/constants";
-  import Check from "@lucide/svelte/icons/check";
-  import Languages from "@lucide/svelte/icons/languages";
 
   type Props = {
     disabled?: boolean;

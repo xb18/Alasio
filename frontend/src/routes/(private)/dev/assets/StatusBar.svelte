@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { ScrollArea, Scrollbar } from "$lib/components/ui/scroll-area";
-  import { cn } from "$lib/utils";
   import CloudOff from "@lucide/svelte/icons/cloud-off";
   import Folder from "@lucide/svelte/icons/folder";
   import Image from "@lucide/svelte/icons/image";
@@ -8,6 +6,8 @@
   import Link from "@lucide/svelte/icons/link";
   import Target from "@lucide/svelte/icons/target";
   import Unlink from "@lucide/svelte/icons/unlink";
+  import { ScrollArea, Scrollbar } from "$lib/components/ui/scroll-area";
+  import { cn } from "$lib/utils";
   import type { FolderResponse } from "./types";
 
   interface Props {

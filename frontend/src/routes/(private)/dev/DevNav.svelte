@@ -9,11 +9,11 @@
   import { cn } from "$lib/utils";
 
   // --- Props Definition (Svelte 5 Runes) ---
-  type $$props = {
+  type $props = {
     class?: string;
   };
 
-  let { class: className }: $$props = $props();
+  let { class: className }: $props = $props();
 
   // --- Navigation Items ---
   const alasioNavItems = $derived([

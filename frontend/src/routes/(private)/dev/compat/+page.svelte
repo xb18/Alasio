@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import * as Card from "$lib/components/ui/card";
+  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { cn } from "$lib/utils.js";
 
-  type $$props = {
+  type $props = {
     class?: string;
   };
 
-  let { class: className }: $$props = $props();
+  let { class: className }: $props = $props();
 
   // Test states
   let transformSupported = $state(false);

@@ -3,10 +3,10 @@ import postcssColorMixFunction from "@csstools/postcss-color-mix-function";
 import postcssOklabFunction from "@csstools/postcss-oklab-function";
 import * as culori from "culori";
 import postcss, { type AtRule, type Declaration, type Root, type Rule } from "postcss";
-import valueParser from "postcss-value-parser";
 // @ts-ignore, no @types/postcss-media-minmax so we just ignore
 import postcssMediaMinmax from "postcss-media-minmax";
 import postcssNesting from "postcss-nesting";
+import valueParser from "postcss-value-parser";
 
 /*
   Required Dependencies:

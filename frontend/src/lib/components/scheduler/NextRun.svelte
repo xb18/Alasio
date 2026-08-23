@@ -1,10 +1,10 @@
 <script lang="ts">
-  type $$Props = {
+  type $Props = {
     // timestamp in seconds or ISO string
     timestamp: number | string;
     class?: string;
   };
-  let { timestamp, class: className }: $$Props = $props();
+  let { timestamp, class: className }: $Props = $props();
 
   let now = $state(Date.now());
   $effect(() => {

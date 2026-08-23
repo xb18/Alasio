@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { cn } from "$lib/utils";
+  import { mode } from "mode-watcher";
+  import { onMount } from "svelte";
   import CircleDotDashed from "@lucide/svelte/icons/circle-dot-dashed";
   import CirclePlay from "@lucide/svelte/icons/circle-play";
   import Ghost from "@lucide/svelte/icons/ghost";
   import Hourglass from "@lucide/svelte/icons/hourglass";
   import X from "@lucide/svelte/icons/x";
-  import { mode } from "mode-watcher";
-  import { onMount } from "svelte";
+  import { cn } from "$lib/utils";
   import type { WORKER_STATE } from "./types";
 
   // props

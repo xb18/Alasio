@@ -1,14 +1,14 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "$lib/components/ui/accordion";
   import { t } from "$lib/i18n";
   import { HeaderContext } from "$lib/slotcontext.svelte";
   import { cn } from "$lib/utils.js";
   import { useTopic } from "$lib/ws";
-  import { untrack } from "svelte";
   import NavButton from "./NavButton.svelte";
   import { uiState as ui } from "./state.svelte";
 
-  type $$props = {
+  type $props = {
     onCardClick?: (nav_name: string, card_name: string) => void;
     onOverviewClick?: () => void;
     onDeviceClick?: () => void;
@@ -17,7 +17,7 @@
   };
 
   // Assign props to reactive variables, providing default empty functions for callbacks.
-  let { onCardClick, onOverviewClick, onDeviceClick, viewport, class: className }: $$props = $props();
+  let { onCardClick, onOverviewClick, onDeviceClick, viewport, class: className }: $props = $props();
 
   // --- WebSocket & RPC Setup ---
   const topicClient = useTopic<Record<string, Record<string, string>>>("ConfigNav");

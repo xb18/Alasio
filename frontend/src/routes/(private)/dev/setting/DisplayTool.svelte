@@ -3,9 +3,9 @@
   import type { ArgData } from "$lib/components/arg/utils.svelte";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import ThemeToggle from "$lib/components/ui/theme/theme-toggle.svelte";
-  import LangSelector from "$lib/i18n/LangSelector.svelte";
-  import { t } from "$lib/i18n";
   import { dpiState, setDpiScaling } from "$lib/dpi/state.svelte";
+  import { t } from "$lib/i18n";
+  import LangSelector from "$lib/i18n/LangSelector.svelte";
   import { isElectron } from "$lib/use/useElectronEnv.svelte";
 
   // dpiScaling mirrors the host value (webapp main AppState) through the

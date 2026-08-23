@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { cn } from "$lib/utils.js";
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
+  import { cn } from "$lib/utils.js";
   import RenameTextarea from "./RenameTextarea.svelte";
-  import { resourceSelection, type ResourceSelectionItem } from "./selected.svelte";
+  import { type ResourceSelectionItem, resourceSelection } from "./selected.svelte";
 
   let {
     name,

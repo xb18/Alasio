@@ -1,9 +1,9 @@
 <script lang="ts">
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import ChevronUp from "@lucide/svelte/icons/chevron-up";
   import { t } from "$lib/i18n";
   import { elementSize } from "$lib/use/size.svelte";
   import { cn } from "$lib/utils";
-  import ChevronDown from "@lucide/svelte/icons/chevron-down";
-  import ChevronUp from "@lucide/svelte/icons/chevron-up";
   import type { ArgData } from "../arg/utils.svelte";
   import DashboardItem from "./DashboardItem.svelte";
 

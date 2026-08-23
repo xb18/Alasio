@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { Indicator, type DropIndicatorState } from "$lib/components/dnd";
-  import { Button } from "$lib/components/ui/button";
-  import { t } from "$lib/i18n";
   import { useDraggable, useDroppable } from "@dnd-kit-svelte/core";
   import Copy from "@lucide/svelte/icons/copy";
   import FilePenLine from "@lucide/svelte/icons/file-pen-line";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import { type DropIndicatorState, Indicator } from "$lib/components/dnd";
+  import { Button } from "$lib/components/ui/button";
+  import { t } from "$lib/i18n";
 
   export type Config = {
     name: string;

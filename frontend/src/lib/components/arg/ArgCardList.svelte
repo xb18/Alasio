@@ -1,13 +1,13 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { fastSmoothScroll, findScrollParent } from "$lib/use/scroll.svelte";
   import { elementSize, elementViewportSize } from "$lib/use/size.svelte";
   import { cn } from "$lib/utils";
   import type UIState from "$private/config/[config_name]/state.svelte";
-  import { untrack } from "svelte";
   import ArgCard from "./ArgCard.svelte";
   import type { CardData, InfoData, InputProps } from "./utils.svelte";
 
-  type $$props = {
+  type $props = {
     data: Record<string, CardData>;
     indicateCard?: string;
     ui?: UIState;
@@ -24,7 +24,7 @@
     handleReset,
     handleGroupReset,
     class: className,
-  }: $$props = $props();
+  }: $props = $props();
 
   let containerSize = $state({ width: 0, height: 0 });
   const parentWidth = $derived(containerSize.width);

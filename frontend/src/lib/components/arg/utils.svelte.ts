@@ -1,5 +1,5 @@
-import { t } from "$lib/i18n";
 import type { Component } from "svelte";
+import { t } from "$lib/i18n";
 
 export const DEFAULT_TIME = "2020-01-01T00:00:00Z";
 export const DEFAULT_TIME_DISPLAY = "2020-01-01 00:00:00";

@@ -1,6 +1,6 @@
 import { redirect } from "@sveltejs/kit";
-import type { LayoutLoad } from "./$types";
 import { authApi } from "$lib/api/auth";
+import type { LayoutLoad } from "./$types";
 
 export const load: LayoutLoad = async () => {
   try {

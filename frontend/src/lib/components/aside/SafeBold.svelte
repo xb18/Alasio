@@ -1,7 +1,7 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { cn } from "$lib/utils";
   import { elementSize } from "$src/lib/use/size.svelte";
-  import { untrack } from "svelte";
 
   interface Props {
     text: string;

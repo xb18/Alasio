@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FilePenLine from "@lucide/svelte/icons/file-pen-line";
   import { Button } from "$lib/components/ui/button";
   import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { Help } from "$lib/components/ui/help";
@@ -6,7 +7,6 @@
   import { Label } from "$lib/components/ui/label";
   import { t } from "$lib/i18n";
   import type { Rpc } from "$lib/ws";
-  import FilePenLine from "@lucide/svelte/icons/file-pen-line";
   import type { Config } from "./ConfigItem.svelte";
 
   type Props = {

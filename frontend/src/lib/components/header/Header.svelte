@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button";
-  import { cn } from "$lib/utils.js";
-  import Menu from "@lucide/svelte/icons/menu";
   import type { HTMLAttributes } from "svelte/elements";
-  import AppHeader from "./AppHeader.svelte";
+  import Menu from "@lucide/svelte/icons/menu";
+  import { Button } from "$lib/components/ui/button";
   import { HeaderContext } from "$lib/slotcontext.svelte";
+  import { cn } from "$lib/utils.js";
+  import AppHeader from "./AppHeader.svelte";
 
   // props
-  type $$props = {
+  type $props = {
     class?: string;
     onMenuClick: () => void;
   };
-  let { class: className, onMenuClick }: HTMLAttributes<HTMLHeadElement> & $$props = $props();
+  let { class: className, onMenuClick }: HTMLAttributes<HTMLHeadElement> & $props = $props();
 </script>
 
 <AppHeader class={cn("", className)}>

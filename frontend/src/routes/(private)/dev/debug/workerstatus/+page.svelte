@@ -1,12 +1,12 @@
 <script lang="ts">
   // !!![svelte-drop-dev-page]!!!
   import Arg from "$lib/components/arg/Arg.svelte";
-  import ConfigItem from "$lib/components/aside/ConfigItem.svelte";
   import type { ArgData } from "$lib/components/arg/utils.svelte";
+  import ConfigItem from "$lib/components/aside/ConfigItem.svelte";
   import type { ConfigLike, WORKER_STATE } from "$lib/components/aside/types";
-  import { useTopic } from "$lib/ws";
   import type { ConfigTopicLike } from "$lib/components/aside/types";
   import * as Card from "$lib/components/ui/card";
+  import { useTopic } from "$lib/ws";
 
   // Subscribe to ConfigScan topic
   const topicClient = useTopic<ConfigTopicLike>("ConfigScan");

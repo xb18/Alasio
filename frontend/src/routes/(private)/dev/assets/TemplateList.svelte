@@ -1,8 +1,8 @@
 <script lang="ts">
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { cn } from "$lib/utils";
-  import { assetSelection, templateSelection, type TemplateSelectionItem } from "./selected.svelte";
   import TemplateImage from "./TemplateImage.svelte";
+  import { type TemplateSelectionItem, assetSelection, templateSelection } from "./selected.svelte";
   import type { MetaAsset, MetaTemplate } from "./types";
 
   let {

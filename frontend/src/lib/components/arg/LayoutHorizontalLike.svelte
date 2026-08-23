@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { cn } from "$lib/utils";
   import type { Snippet } from "svelte";
+  import { cn } from "$lib/utils";
   import I18nText from "./I18nText.svelte";
-  import { getArgName, type ArgData } from "./utils.svelte";
+  import { type ArgData, getArgName } from "./utils.svelte";
 
   let {
     children,

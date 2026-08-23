@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { cn } from "$lib/utils.js";
-  import Folder from "@lucide/svelte/icons/folder";
   import type { HTMLAttributes } from "svelte/elements";
+  import Folder from "@lucide/svelte/icons/folder";
+  import { cn } from "$lib/utils.js";
   import ResourceDisplay from "./ResourceDisplay.svelte";
   import type { ResourceSelectionItem } from "./selected.svelte";
 

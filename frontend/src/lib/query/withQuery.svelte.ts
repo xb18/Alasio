@@ -1,7 +1,7 @@
-import { client, type ApiResponse } from "./client";
+import { type ApiResponse, client } from "./client";
 import { createQuery } from "./createQuery.svelte";
 import { deepMerge } from "./merge";
-import type { TResponseMap, Query } from "./queryState";
+import type { Query, TResponseMap } from "./queryState";
 
 // --- Type-level Utilities ---
 

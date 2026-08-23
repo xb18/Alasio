@@ -3,7 +3,7 @@
   import type { ArgData } from "$lib/components/arg/utils.svelte";
   import * as Select from "$lib/components/ui/select";
   import { t } from "$lib/i18n";
-  import { electronEnv, isElectronSession, type WindowControlsAvoidMode } from "$lib/use/useElectronEnv.svelte";
+  import { type WindowControlsAvoidMode, electronEnv, isElectronSession } from "$lib/use/useElectronEnv.svelte";
 
   // $derived so labels follow the current display language
   const avoidOptions = $derived.by<{ value: WindowControlsAvoidMode; label: string }[]>(() => [

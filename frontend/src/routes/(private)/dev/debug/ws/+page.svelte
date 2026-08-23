@@ -1,5 +1,7 @@
 <script lang="ts">
   // !!![svelte-drop-dev-page]!!!
+  import { onDestroy } from "svelte";
+  import Loader2 from "@lucide/svelte/icons/loader-circle";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import * as Card from "$lib/components/ui/card";
@@ -9,8 +11,6 @@
   import { t } from "$lib/i18n";
   import { websocketClient } from "$lib/ws";
   import { createRpc } from "$lib/ws/rpc.svelte";
-  import Loader2 from "@lucide/svelte/icons/loader-circle";
-  import { onDestroy } from "svelte";
 
   // --- Form State ---
   let topic = $state("ConfigScan");

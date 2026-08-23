@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { Image } from "$lib/components/ui/image";
-  import * as Tooltip from "$lib/components/ui/tooltip";
+  import type { HTMLAttributes } from "svelte/elements";
   import CircleHelp from "@lucide/svelte/icons/circle-question-mark";
   import CloudOff from "@lucide/svelte/icons/cloud-off";
   import Link from "@lucide/svelte/icons/link";
   import Unlink from "@lucide/svelte/icons/unlink";
-  import type { HTMLAttributes } from "svelte/elements";
+  import { Image } from "$lib/components/ui/image";
+  import * as Tooltip from "$lib/components/ui/tooltip";
   import ResourceDisplay from "./ResourceDisplay.svelte";
-  import type { ResourceItem } from "./types";
   import type { ResourceSelectionItem } from "./selected.svelte";
+  import type { ResourceItem } from "./types";
 
   let {
     mod_name,

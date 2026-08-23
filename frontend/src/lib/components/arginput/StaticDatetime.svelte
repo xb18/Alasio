@@ -1,7 +1,7 @@
 <script lang="ts">
+  import type { ArgData } from "$lib/components/arg/utils.svelte";
   import { cn } from "$lib/utils";
   import { formatToLocal, tzOffset } from "./dateutils.svelte";
-  import type { ArgData } from "$lib/components/arg/utils.svelte";
 
   let {
     data = $bindable(),

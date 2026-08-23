@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useArgValue, type InputProps } from "$lib/components/arg/utils.svelte";
+  import { type InputProps, useArgValue } from "$lib/components/arg/utils.svelte";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import { cn } from "$lib/utils";
 

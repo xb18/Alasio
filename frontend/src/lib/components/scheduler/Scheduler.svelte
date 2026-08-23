@@ -1,11 +1,11 @@
 <script lang="ts">
+  import CircleDotDashed from "@lucide/svelte/icons/circle-dot-dashed";
   import ConfigState from "$lib/components/aside/ConfigState.svelte";
   import { useWorkerState } from "$lib/components/aside/state.svelte";
   import type { WORKER_STATE } from "$lib/components/aside/types";
   import { t } from "$lib/i18n";
   import { cn } from "$lib/utils";
   import { useTopic } from "$lib/ws";
-  import CircleDotDashed from "@lucide/svelte/icons/circle-dot-dashed";
   import ActionKill from "./ActionKill.svelte";
   import ActionSchedulerContinue from "./ActionSchedulerContinue.svelte";
   import ActionSchedulerStop from "./ActionSchedulerStop.svelte";
@@ -14,7 +14,7 @@
   import NextRun from "./NextRun.svelte";
   import type { TaskItem } from "./types";
 
-  type $$props = {
+  type $props = {
     config_name: string;
     workerState?: WORKER_STATE;
     taskRunning?: string;
@@ -29,7 +29,7 @@
     taskNext,
     onOverviewClick,
     class: className,
-  }: $$props = $props();
+  }: $props = $props();
 
   const displayState = useWorkerState(() => workerState);
   const isRunning = $derived(taskRunning && displayState.value !== "idle");

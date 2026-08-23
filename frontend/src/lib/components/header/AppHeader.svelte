@@ -1,17 +1,17 @@
 <script lang="ts">
-  import ThemeToggle from "$lib/components/ui/theme/theme-toggle.svelte";
-  import LangSelector from "$lib/i18n/LangSelector.svelte";
-  import { electronEnv, WINDOW_CONTROLS_WIDTH } from "$lib/use/useElectronEnv.svelte";
-  import { cn } from "$lib/utils.js";
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
+  import ThemeToggle from "$lib/components/ui/theme/theme-toggle.svelte";
+  import LangSelector from "$lib/i18n/LangSelector.svelte";
+  import { WINDOW_CONTROLS_WIDTH, electronEnv } from "$lib/use/useElectronEnv.svelte";
+  import { cn } from "$lib/utils.js";
 
   // props
-  type $$props = {
+  type $props = {
     children?: Snippet;
     class?: string;
   };
-  let { children, class: className }: HTMLAttributes<HTMLHeadElement> & $$props = $props();
+  let { children, class: className }: HTMLAttributes<HTMLHeadElement> & $props = $props();
 </script>
 
 <header

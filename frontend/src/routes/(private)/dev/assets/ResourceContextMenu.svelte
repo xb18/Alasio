@@ -1,4 +1,14 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
+  import File from "@lucide/svelte/icons/file";
+  import FileSymlink from "@lucide/svelte/icons/file-symlink";
+  import Folder from "@lucide/svelte/icons/folder";
+  import FolderPlus from "@lucide/svelte/icons/folder-plus";
+  import Link from "@lucide/svelte/icons/link";
+  import Edit from "@lucide/svelte/icons/square-pen";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Unlink from "@lucide/svelte/icons/unlink";
+  import Upload from "@lucide/svelte/icons/upload";
   import {
     AlertDialog,
     AlertDialogAction,
@@ -15,16 +25,6 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Separator } from "$lib/components/ui/separator";
   import type { TopicLifespan } from "$lib/ws";
-  import Edit from "@lucide/svelte/icons/square-pen";
-  import File from "@lucide/svelte/icons/file";
-  import FileSymlink from "@lucide/svelte/icons/file-symlink";
-  import Folder from "@lucide/svelte/icons/folder";
-  import FolderPlus from "@lucide/svelte/icons/folder-plus";
-  import Link from "@lucide/svelte/icons/link";
-  import Trash2 from "@lucide/svelte/icons/trash-2";
-  import Unlink from "@lucide/svelte/icons/unlink";
-  import Upload from "@lucide/svelte/icons/upload";
-  import type { Snippet } from "svelte";
   import { resourceSelection } from "./selected.svelte";
   import type { FolderResponse } from "./types";
 

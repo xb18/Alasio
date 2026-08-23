@@ -11,9 +11,8 @@
 // storage is only a per-client cache of the host-driven value). Remote
 // browser sessions have no parent container and keep the per-client
 // mode-watcher behavior.
-
-import { browser } from "$app/environment";
 import { setMode } from "mode-watcher";
+import { browser } from "$app/environment";
 import { isElectron } from "$lib/use/useElectronEnv.svelte";
 
 export type ConfigTheme = "system" | "light" | "dark";

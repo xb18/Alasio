@@ -12,10 +12,10 @@
     detail: string;
   };
 
-  type $$props = {
+  type $props = {
     item: HistoryItem;
   };
-  let { item }: $$props = $props();
+  let { item }: $props = $props();
 
   const SHA1_REGEX = /^[0-9a-f]{40}$/;
 

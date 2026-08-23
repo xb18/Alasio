@@ -13,12 +13,12 @@
   };
   export type ModHistoryData = Record<string, { data?: HistoryItem[]; error?: string }>;
 
-  type $$props = {
+  type $props = {
     class?: string;
     mods?: ModOption[];
     history?: ModHistoryData;
   };
-  let { class: className, mods: modsProp, history: historyProp }: $$props = $props();
+  let { class: className, mods: modsProp, history: historyProp }: $props = $props();
 
   // Number of commits shown before expanding
   const PREVIEW_COUNT = 3;

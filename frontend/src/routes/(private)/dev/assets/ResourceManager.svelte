@@ -6,7 +6,7 @@
   import ResourceContextMenu from "./ResourceContextMenu.svelte";
   import ResourceFile from "./ResourceFile.svelte";
   import ResourceFolder from "./ResourceFolder.svelte";
-  import { resourceSelection, type ResourceSelectionItem } from "./selected.svelte";
+  import { type ResourceSelectionItem, resourceSelection } from "./selected.svelte";
   import type { FolderResponse, ResourceItem } from "./types";
 
   let {

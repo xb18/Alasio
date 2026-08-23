@@ -1,10 +1,5 @@
 <script lang="ts">
-  import type { WORKER_STATE } from "$lib/components/aside/types";
-  import Button from "$lib/components/ui/button/button.svelte";
-  import * as Popover from "$lib/components/ui/popover";
-  import { t } from "$lib/i18n";
-  import { fullTime, globalClock, shortTime } from "$lib/use/clock.svelte";
-  import { cn } from "$lib/utils";
+  import { onDestroy, untrack } from "svelte";
   import Check from "@lucide/svelte/icons/check";
   import CircleDotDashed from "@lucide/svelte/icons/circle-dot-dashed";
   import Clock from "@lucide/svelte/icons/clock";
@@ -12,7 +7,12 @@
   import PlayOff from "@lucide/svelte/icons/play-off";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import Zap from "@lucide/svelte/icons/zap";
-  import { onDestroy, untrack } from "svelte";
+  import type { WORKER_STATE } from "$lib/components/aside/types";
+  import Button from "$lib/components/ui/button/button.svelte";
+  import * as Popover from "$lib/components/ui/popover";
+  import { t } from "$lib/i18n";
+  import { fullTime, globalClock, shortTime } from "$lib/use/clock.svelte";
+  import { cn } from "$lib/utils";
   import type { PreviewMode, PreviewState } from "./types";
 
   type Props = {

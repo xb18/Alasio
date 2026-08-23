@@ -1,7 +1,7 @@
 <script lang="ts">
   import { cn } from "$lib/utils";
-  import { getArgName, type LayoutProps } from "./utils.svelte";
   import I18nText from "./I18nText.svelte";
+  import { type LayoutProps, getArgName } from "./utils.svelte";
 
   let { data = $bindable(), InputComponent, handleEdit, handleReset, class: className }: LayoutProps = $props();
 

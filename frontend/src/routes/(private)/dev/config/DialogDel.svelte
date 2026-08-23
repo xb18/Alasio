@@ -1,10 +1,10 @@
 <script lang="ts">
+  import AlertTriangle from "@lucide/svelte/icons/triangle-alert";
   import { Button } from "$lib/components/ui/button";
   import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
   import { Help } from "$lib/components/ui/help";
   import { t } from "$lib/i18n";
   import type { Rpc } from "$lib/ws";
-  import AlertTriangle from "@lucide/svelte/icons/triangle-alert";
   import type { Config } from "./ConfigItem.svelte";
 
   type Props = {

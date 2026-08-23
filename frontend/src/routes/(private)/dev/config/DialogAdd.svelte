@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Plus from "@lucide/svelte/icons/plus";
   import ModSelector from "$lib/components/arginput/ModSelector.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
@@ -7,7 +8,6 @@
   import { Label } from "$lib/components/ui/label";
   import { t } from "$lib/i18n";
   import type { Rpc } from "$lib/ws";
-  import Plus from "@lucide/svelte/icons/plus";
 
   type Props = {
     rpc: Rpc;

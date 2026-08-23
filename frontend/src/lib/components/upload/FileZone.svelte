@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { cn } from "$lib/utils";
   import type { Snippet } from "svelte";
+  import { cn } from "$lib/utils";
   import DropOverlay from "./DropOverlay.svelte";
   import FilePaste from "./FilePaste.svelte";
   import UploadProgress from "./UploadProgress.svelte";
-  import { UploadState, type OnUploadFunction } from "./uploadState.svelte";
+  import { type OnUploadFunction, UploadState } from "./uploadState.svelte";
   import { filterFilesByAccept } from "./utils";
 
   let {

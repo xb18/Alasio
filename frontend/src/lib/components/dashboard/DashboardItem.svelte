@@ -1,6 +1,6 @@
 <script lang="ts">
   import { cn } from "$lib/utils";
-  import { getArgName, type ArgData } from "../arg/utils.svelte";
+  import { type ArgData, getArgName } from "../arg/utils.svelte";
   import ColorDot from "./ColorDot.svelte";
   import PrettyValue from "./PrettyValue.svelte";
   import ReadableTime from "./ReadableTime.svelte";

@@ -19,7 +19,7 @@
     "<BUILTIN_MODULES>",
     "<THIRD_PARTY_MODULES>",
     "^@lucide/svelte/(.*)$",
-    "^\\$(lib|src|app)/(.*)$",
+    "^\\$(lib|src|app|private|routes|public)/(.*)$",
     "^[./]"
   ],
   "importOrderSortSpecifiers": true

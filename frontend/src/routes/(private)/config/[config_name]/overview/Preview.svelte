@@ -1,12 +1,12 @@
 <script lang="ts">
   import type { WORKER_STATE } from "$lib/components/aside/types";
-  import type { PreviewMode } from "./types";
+  import { screen } from "$lib/use/screen.svelte";
+  import { useLocalStorage } from "$lib/use/useLocalStorage.svelte";
   import { cn } from "$lib/utils";
   import { useTopic } from "$lib/ws";
   import { previewClient } from "$lib/ws/preview.svelte";
-  import { screen } from "$lib/use/screen.svelte";
-  import { useLocalStorage } from "$lib/use/useLocalStorage.svelte";
   import PreviewDisplay from "./PreviewDisplay.svelte";
+  import type { PreviewMode } from "./types";
 
   type Props = {
     class?: string;

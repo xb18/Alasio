@@ -1,5 +1,5 @@
-import type { Rpc } from "$lib/ws";
 import { untrack } from "svelte";
+import type { Rpc } from "$lib/ws";
 
 interface UploadItem {
   id: string;

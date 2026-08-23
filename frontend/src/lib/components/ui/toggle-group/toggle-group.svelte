@@ -15,7 +15,7 @@
   import { cn } from "$lib/utils.js";
   import { untrack } from "svelte";
 
-  type $$Props = Omit<ToggleGroupPrimitive.RootProps, "onValueChange"> &
+  type $Props = Omit<ToggleGroupPrimitive.RootProps, "onValueChange"> &
     ToggleVariants
 
   // MODIFIED: If type is "single", toggle group must select one item
@@ -29,7 +29,7 @@
     // catch additional `type`
     type = "single",
     ...restProps
-  }: $$Props = $props();
+  }: $Props = $props();
 
   // We need a separate state to track the "last valid" value.
   let lastValidValue = $state(value);

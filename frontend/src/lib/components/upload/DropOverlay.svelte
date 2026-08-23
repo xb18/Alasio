@@ -1,7 +1,7 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import Upload from "@lucide/svelte/icons/upload";
   import { cn } from "$lib/utils";
-  import type { Snippet } from "svelte";
 
   let {
     class: className,

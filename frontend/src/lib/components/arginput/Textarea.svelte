@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useArgValue, type InputProps } from "$lib/components/arg/utils.svelte";
+  import { type InputProps, useArgValue } from "$lib/components/arg/utils.svelte";
   import { Textarea } from "$lib/components/ui/textarea";
   import { cn } from "$lib/utils";
   import Reset from "./_Reset.svelte";
