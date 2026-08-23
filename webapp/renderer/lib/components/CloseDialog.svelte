@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import * as AlertDialog from "$lib/components/ui/alert-dialog";
+  import { buttonVariants } from "$lib/components/ui/button/button.svelte";
   import { t } from "$lib/i18n";
 
   interface Props {
@@ -37,38 +39,31 @@
   }
 </script>
 
-{#if show}
-  <div class="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm" onclick={handleCancel}>
-    <div
-      class="bg-card text-card-foreground border-border w-96 rounded-lg border p-6 shadow-lg"
-      onclick={(e) => e.stopPropagation()}
-    >
-      <h2 class="mb-4 text-2xl font-bold">{t.CloseDialog.Title()}</h2>
-      <p class="text-muted-foreground mb-6">{t.CloseDialog.Message()}</p>
+<AlertDialog.Root bind:open={show}>
+  <AlertDialog.Content
+    onEscapeKeydown={(e) => {
+      if (isClosing) e.preventDefault();
+    }}
+  >
+    <AlertDialog.Header>
+      <AlertDialog.Title>{t.CloseDialog.Title()}</AlertDialog.Title>
+      <AlertDialog.Description>{t.CloseDialog.Message()}</AlertDialog.Description>
+    </AlertDialog.Header>
 
-      {#if isClosing}
-        <div class="flex flex-col items-center gap-4 py-4">
-          <div class="border-border border-t-muted-foreground h-8 w-8 animate-spin rounded-full border-4"></div>
-          <p class="text-muted-foreground text-sm">
-            {stageMessages[shutdownStage] || t.CloseDialog.Closing()}
-          </p>
-        </div>
-      {:else}
-        <div class="flex justify-end gap-3">
-          <button
-            onclick={handleCancel}
-            class="border-border hover:bg-accent hover:text-accent-foreground rounded border px-4 py-2 transition-colors"
-          >
-            {t.CloseDialog.Cancel()}
-          </button>
-          <button
-            onclick={handleConfirm}
-            class="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded px-4 py-2 transition-colors"
-          >
-            {t.CloseDialog.Confirm()}
-          </button>
-        </div>
-      {/if}
-    </div>
-  </div>
-{/if}
+    {#if isClosing}
+      <div class="flex flex-col items-center gap-4 py-4">
+        <div class="border-border border-t-muted-foreground h-8 w-8 animate-spin rounded-full border-4"></div>
+        <p class="text-muted-foreground text-sm">
+          {stageMessages[shutdownStage] || t.CloseDialog.Closing()}
+        </p>
+      </div>
+    {:else}
+      <AlertDialog.Footer>
+        <AlertDialog.Cancel onclick={handleCancel}>{t.CloseDialog.Cancel()}</AlertDialog.Cancel>
+        <button onclick={handleConfirm} class={buttonVariants({ variant: "destructive" })}>
+          {t.CloseDialog.Confirm()}
+        </button>
+      </AlertDialog.Footer>
+    {/if}
+  </AlertDialog.Content>
+</AlertDialog.Root>
