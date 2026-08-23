@@ -1,14 +1,15 @@
-// Pack the vite build output (dist/) into app.asar and replace the archives
-// found under the release directory, so small changes can be shipped without
-// repacking the whole electron app.
+// Pack the vite build output (dist/) into app.asar. A standalone archive is
+// always generated at the release root, and existing archives inside packaged
+// apps are replaced, so small changes can be shipped without repacking the
+// whole electron app.
 //
 // The archive layout replicates electron-builder's `files` config in
 // electron-builder.yml (dist/**/* plus package.json at the archive root).
 // Run with: tsx scripts/pack-asar.ts
-import { createPackageFromFiles } from "@electron/asar";
-import { existsSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createPackageFromFiles } from "@electron/asar";
 
 const webappRoot = fileURLToPath(new URL("..", import.meta.url));
 const distDir = join(webappRoot, "dist");
@@ -26,7 +27,7 @@ const releaseDir = join(webappRoot, "release");
  * Returns:
  *     list[str]: Absolute paths of regular files
  */
-function walkFiles(dir) {
+function walkFiles(dir: string): string[] {
   const files = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const file = join(dir, entry.name);
@@ -55,7 +56,7 @@ function walkFiles(dir) {
  * Returns:
  *     list[str]: Absolute paths of app.asar files
  */
-function findAsarFiles(dir) {
+function findAsarFiles(dir: string): string[] {
   const files = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const file = join(dir, entry.name);
@@ -78,7 +79,7 @@ function findAsarFiles(dir) {
  *     target (str): Absolute path of the app.asar to replace
  *     files (list[str]): Archive entries, relative to webappRoot
  */
-async function replaceAsar(target, files) {
+async function replaceAsar(target: string, files: string[]): Promise<void> {
   const tmp = `${target}.tmp`;
   try {
     await createPackageFromFiles(webappRoot, tmp, files);
@@ -90,25 +91,23 @@ async function replaceAsar(target, files) {
 }
 
 async function main() {
-  if (!existsSync(releaseDir)) {
-    console.log("No release directory found, skip asar packaging.");
-    return;
-  }
   if (!existsSync(distDir)) {
     console.error("dist directory not found, run vite build first.");
     process.exitCode = 1;
     return;
   }
-  const targets = findAsarFiles(releaseDir);
-  if (targets.length === 0) {
-    console.log("No app.asar found in release, skip asar packaging.");
-    return;
-  }
-  const files = [
-    ...walkFiles(distDir).map((file) => relative(webappRoot, file)),
-    "package.json",
-  ];
-  for (const target of targets) {
+  // Always generate a standalone app.asar at the release root, so the latest
+  // build can be shipped without repacking the whole electron app.
+  mkdirSync(releaseDir, { recursive: true });
+  const files = [...walkFiles(distDir).map((file) => relative(webappRoot, file)), "package.json"];
+  const standaloneAsar = join(releaseDir, "app.asar");
+  await replaceAsar(standaloneAsar, files);
+  // Keep the app.asar archives inside existing packaged apps up to date.
+  for (const target of findAsarFiles(releaseDir)) {
+    if (target === standaloneAsar) {
+      // Already generated above.
+      continue;
+    }
     await replaceAsar(target, files);
   }
 }
