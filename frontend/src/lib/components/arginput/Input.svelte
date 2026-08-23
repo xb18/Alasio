@@ -171,8 +171,8 @@
         isDatetime ? "pr-12 focus-visible:pr-12" : "focus-visible:pr-6",
         isDesc ? "text-muted-foreground py-0" : "",
         "focus-visible:shadow-none",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-5",
-        errorMessage && "ring-destructive ring-2 ring-offset-5",
+        "focus-visible:ring-ring focus-visible:ring-offset-background focus-visible:ring-2 focus-visible:ring-offset-5",
+        errorMessage && "ring-destructive ring-offset-background ring-2 ring-offset-5",
       )}
       bind:value={inputValue.val}
       bind:ref={inputEl}
