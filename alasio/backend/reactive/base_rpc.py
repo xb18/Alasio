@@ -32,6 +32,9 @@ class RPCMethod:
         for name, arg in sig.parameters.items():
             if name == 'self':
                 continue
+            if arg.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                # *args / **kwargs are not rpc arguments, skip them
+                continue
             dict_default[name] = arg.default
             dict_annotation[name] = arg.annotation
 

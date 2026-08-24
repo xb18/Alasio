@@ -531,7 +531,7 @@ class WebsocketTopicServer:
                 return
             # create new topic
             topic = topic_class(self.id, self)
-            self.subscribed[topic.topic_name()] = topic
+            self.subscribed[t] = topic
             await topic.op_sub()
             return
         if op == 'unsub':

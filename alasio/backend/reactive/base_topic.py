@@ -1,9 +1,9 @@
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import trio
 
-from alasio.backend.worker.event import ConfigEvent
 from alasio.backend.reactive.base_rpc import RPCMethod
+from alasio.backend.worker.event import ConfigEvent
 
 if TYPE_CHECKING:
     MSGBUS_GLOBAL_SEND: "trio.MemorySendChannel[tuple[str, Any]]"
@@ -60,6 +60,10 @@ class BaseTopic:
                     continue
                 if hasattr(member, '_rpc_method_instance'):
                     # The decorator has already done the heavy lifting. We just collect the result.
+                    # MRO iterates from the most derived class to the base, so keep the first
+                    # (most derived) definition, allowing child classes to override parent methods
+                    if name in cls.rpc_methods:
+                        continue
                     cls.rpc_methods[name] = member._rpc_method_instance
                     continue
                 # collect msgbus handlers
