@@ -1,0 +1,36 @@
+{
+  "request": {
+    "omit_defaults": [
+      { "t": "ConfigScan" },
+      { "t": "ConfigScan", "o": "unsub" }
+    ],
+    "full": [
+      { "t": "ConfigScan", "o": "sub" },
+      {
+        "t": "ConfigScan",
+        "o": "rpc",
+        "f": "config_add",
+        "v": { "name": "new_config", "mod": "example_mod" },
+        "i": "rpc-001"
+      }
+    ]
+  },
+  "response": {
+    "omit_defaults": [
+      {
+        "t": "ConnState",
+        "o": "full",
+        "v": { "lang": "en-US", "config_name": "", "mod_name": "", "nav_name": "" }
+      },
+      { "t": "ConnState", "o": "set", "k": ["lang"], "v": "zh-CN" },
+      { "t": "ConnState", "o": "del", "k": ["nav_name"] },
+      { "t": "ConnState", "i": "rpc-001" },
+      { "t": "ConnState", "i": "rpc-002", "v": "No such config: \"foo\"" }
+    ],
+    "full": [
+      { "t": "ConnState", "o": "add", "k": [], "v": {} },
+      { "t": "ConnState", "o": "set", "k": ["nav", "name"], "v": "overview" },
+      { "t": "ConnState", "o": "full", "k": [], "v": { "lang": "en-US" } }
+    ]
+  }
+}
