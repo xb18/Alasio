@@ -2,6 +2,19 @@ import os
 
 from .calc import get_rootstem
 
+# Reserved names of NTFS metadata files, e.g. `$MFT` or `$LOGFILE`.
+NTFS_METADATA_NAMES = frozenset({
+    "$MFT", "$MFTMIRR", "$LOGFILE", "$VOLUME", "$ATTRDEF", "$BITMAP",
+    "$BOOT", "$BADCLUS", "$SECURE", "$UPCASE", "$EXTEND",
+})
+
+# Reserved system names on Windows, e.g. `CON` or `LPT1`.
+RESERVED_SYSTEM_NAMES = frozenset({
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+})
+
 
 def validate_filename(filename):
     """
@@ -51,19 +64,12 @@ def validate_filename(filename):
     if filename == '.' or filename == '..':
         raise ValueError(f'Filename cannot be directory pointer: "{filename}"')
     upper = filename.upper()
-    if upper in (
-            "$MFT", "$MFTMIRR", "$LOGFILE", "$VOLUME", "$ATTRDEF", "$BITMAP",
-            "$BOOT", "$BADCLUS", "$SECURE", "$UPCASE", "$EXTEND",
-    ):
+    if upper in NTFS_METADATA_NAMES:
         raise ValueError(f'Filename cannot be NTFS metadata name: {upper}')
 
     # Check for basenames like `CON` or `LPT1`
     base_name = get_rootstem(upper).lstrip(' ').rstrip('. ')
-    if base_name in (
-            "CON", "PRN", "AUX", "NUL",
-            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-    ):
+    if base_name in RESERVED_SYSTEM_NAMES:
         raise ValueError(f'Filename cannot be reserved system name: {base_name}')
 
     # --- Check 6: Final Byte-Length Check (Most Expensive) ---
@@ -120,19 +126,12 @@ def _validate_path_component(component: str):
         raise ValueError(f'Path component cannot be directory pointer: "{component}"')
 
     upper = component.upper()
-    if upper in (
-            "$MFT", "$MFTMIRR", "$LOGFILE", "$VOLUME", "$ATTRDEF", "$BITMAP",
-            "$BOOT", "$BADCLUS", "$SECURE", "$UPCASE", "$EXTEND",
-    ):
+    if upper in NTFS_METADATA_NAMES:
         raise ValueError(f'Path component cannot be NTFS metadata name: {upper}')
 
     # Check for basenames like `CON` or `LPT1`
     base_name = get_rootstem(upper).lstrip(' ').rstrip('. ')
-    if base_name in (
-            "CON", "PRN", "AUX", "NUL",
-            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-    ):
+    if base_name in RESERVED_SYSTEM_NAMES:
         raise ValueError(f'Path component cannot be reserved system name: {base_name}')
 
     # --- Check 6: Final Byte-Length Check (Most Expensive) ---
