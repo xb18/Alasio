@@ -320,18 +320,21 @@ describe("TestMessageDispatch", () => {
     error.mockRestore();
   });
 
-  it("throws on non-binary text messages: decode runs outside the try block", () => {
-    // Known limitation pinned as current behavior (see doc §8.5.3):
-    // event.data is assumed to be an ArrayBuffer (the backend always
-    // send_bytes, including the ping heartbeat), so a text frame
-    // reaches TextDecoder.decode and throws out of the event callback.
+  it("logs non-binary text messages instead of throwing", () => {
+    // Regression test for doc §8.5.3: decode used to run outside the try
+    // block, so a text frame (non-ArrayBuffer) reached TextDecoder.decode
+    // and threw TypeError out of the event callback. Decode is now inside
+    // the try block: the error is logged and the callback stays alive.
     const client = new TestClient();
     client.connect();
     FakeWebSocket.last!.serverOpen();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
     expect(() => {
       client.handleMessage({ data: "ping" } as MessageEvent);
-    }).toThrow(TypeError);
+    }).not.toThrow();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 });
 

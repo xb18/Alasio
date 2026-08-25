@@ -164,15 +164,15 @@ export class WebsocketManager {
    * Can be overridden by subclasses to handle specialized message formats.
    */
   protected onMessage(event: MessageEvent<ArrayBuffer>) {
-    // Handle server heartbeats.
-    const message = this.#decoder.decode(event.data);
-    if (message === "ping") {
-      this.#ws?.send(this.#encoder.encode("pong"));
-      return;
-    }
-
-    // Handle data events.
     try {
+      // Handle server heartbeats.
+      const message = this.#decoder.decode(event.data);
+      if (message === "ping") {
+        this.#ws?.send(this.#encoder.encode("pong"));
+        return;
+      }
+
+      // Handle data events.
       const data: ResponseEvent | ResponseEvent[] = JSON.parse(message);
       const events = Array.isArray(data) ? data : [data];
 
@@ -198,7 +198,7 @@ export class WebsocketManager {
         this.#handleTopicBatch(topic, items);
       }
     } catch (e) {
-      console.error("Failed to parse WebSocket message:", message, e);
+      console.error("Failed to parse WebSocket message:", e);
     }
   }
 
