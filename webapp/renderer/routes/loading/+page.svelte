@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import StartupCard from "$lib/components/StartupCard.svelte";
 
   let logs = $state<string[]>([]);
   let logContainer: HTMLDivElement;
@@ -18,10 +19,7 @@
   });
 </script>
 
-<div class="bg-background text-foreground flex h-full flex-col items-center justify-center">
-  <h1 class="mb-8 text-6xl font-bold">Alasio</h1>
-  <div class="text-muted-foreground mb-12 text-xl">Starting backend...</div>
-
+<StartupCard title="Alasio" desc="Starting backend..." class="">
   <div
     bind:this={logContainer}
     class="bg-muted border-border h-64 w-[80%] max-w-4xl overflow-y-auto rounded-lg border p-4 font-mono text-sm"
@@ -30,4 +28,4 @@
       <div class="text-muted-foreground whitespace-pre-wrap">{log}</div>
     {/each}
   </div>
-</div>
+</StartupCard>

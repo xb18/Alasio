@@ -1,5 +1,6 @@
 <script lang="ts">
   import Select from "$lib/components/Select.svelte";
+  import StartupCard from "$lib/components/StartupCard.svelte";
   import { Button } from "$lib/components/ui/button";
   import { t } from "$lib/i18n";
   import { setLanguage } from "$lib/i18n/state.svelte";
@@ -48,29 +49,24 @@
   }
 </script>
 
-<div class="bg-background text-foreground flex h-full items-center justify-center">
-  <div class="flex w-[600px] flex-col items-center">
-    <h1 class="text-5xl font-bold">Alasio</h1>
-    <p class="text-muted-foreground mt-2 mb-14 text-xl">{t.Setup.Welcome()}</p>
-
-    <div class="w-full space-y-10">
-      <div class="flex items-center justify-between gap-6">
-        <label for="setup-language" class="text-lg">{t.Setup.SelectLanguage()}</label>
-        <div class="w-72">
-          <Select id="setup-language" bind:value={selectedLang} options={languages} onValueChange={selectLang} />
-        </div>
-      </div>
-
-      <div class="flex items-center justify-between gap-6">
-        <label for="setup-theme" class="text-lg">{t.Setup.SelectTheme()}</label>
-        <div class="w-72">
-          <Select id="setup-theme" bind:value={selectedTheme} options={themes} onValueChange={selectTheme} />
-        </div>
+<StartupCard title="Alasio" desc={t.Setup.Welcome()}>
+  <div class="flex w-full flex-col gap-2">
+    <div class="flex items-center justify-between gap-6">
+      <label for="setup-language" class="text-lg">{t.Setup.SelectLanguage()}</label>
+      <div class="w-60">
+        <Select id="setup-language" bind:value={selectedLang} options={languages} onValueChange={selectLang} />
       </div>
     </div>
 
-    <Button onclick={handleStart} size="lg" class="mt-16 h-14 w-48 rounded-xl text-xl font-semibold">
-      {t.Setup.Start()}
-    </Button>
+    <div class="flex items-center justify-between gap-6">
+      <label for="setup-theme" class="text-lg">{t.Setup.SelectTheme()}</label>
+      <div class="w-60">
+        <Select id="setup-theme" bind:value={selectedTheme} options={themes} onValueChange={selectTheme} />
+      </div>
+    </div>
   </div>
-</div>
+
+  <Button onclick={handleStart} size="lg" class="mt-16 h-14 w-48 rounded-xl text-xl font-semibold">
+    {t.Setup.Start()}
+  </Button>
+</StartupCard>

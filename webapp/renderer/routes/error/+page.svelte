@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { Button } from "$lib/components/ui/button";
+  import * as Card from "$lib/components/ui/card";
   import { t } from "$lib/i18n";
   import { useSharedState } from "$lib/useSharedState.svelte";
 
@@ -15,12 +17,14 @@
   });
 </script>
 
-<div class="bg-background text-foreground flex h-full items-center justify-center">
-  <div class="bg-card w-[600px] rounded-xl p-12 shadow-lg backdrop-blur-lg">
-    <h1 class="text-destructive mb-6 text-4xl font-bold">Error</h1>
+<div class="dotbg bg-background text-foreground flex h-full items-center justify-center">
+  <Card.Root class="neushadow w-120 border-none">
+    <Card.Header>
+      <Card.Title class="text-destructive text-4xl font-bold">Error</Card.Title>
+    </Card.Header>
 
-    <div class="mb-6">
-      <p class="mb-4 text-xl">
+    <Card.Content>
+      <p class="text-lg">
         {errorMessage}
       </p>
       {#if sharedState.errorPath}
@@ -28,13 +32,12 @@
           <p>{t.Error.CurrentPath()}: {sharedState.errorPath}</p>
         </div>
       {/if}
-    </div>
+    </Card.Content>
 
-    <button
-      onclick={() => location.reload()}
-      class="bg-primary hover:bg-primary/30 text-destructive-foreground w-full rounded-lg py-3 font-semibold transition-colors"
-    >
-      {t.Error.Retry()}
-    </button>
-  </div>
+    <Card.Footer>
+      <Button onclick={() => location.reload()} class="w-full h-10 font-semibold text-lg">
+        {t.Error.Retry()}
+      </Button>
+    </Card.Footer>
+  </Card.Root>
 </div>
