@@ -264,7 +264,6 @@ if __name__ == '__main__':
     reactive example
     """
 
-
     class Counter(ReactiveCallback):
         @reactive_source
         def value(self):
@@ -278,7 +277,6 @@ if __name__ == '__main__':
         def reactive_callback(self, name, old, new):
             # `reactive_callback` will be called once `value` or `doubled` changed
             print(f'property "{name}" changed: {old} -> {new}')
-
 
     counter = Counter()
     print(counter.value)

@@ -1,5 +1,4 @@
 import cv2
-import numpy as np
 
 from alasio.base.image.imfile import ImageNotSupported, image_channel, image_copy, image_size
 

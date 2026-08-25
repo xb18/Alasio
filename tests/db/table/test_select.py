@@ -258,8 +258,8 @@ def test_select_by_sql_complex_query(user_table, sample_users):
     user_table.insert_row(sample_users)
 
     sql = '''
-        SELECT * FROM users 
-        WHERE age >= :min_age AND age <= :max_age 
+        SELECT * FROM users
+        WHERE age >= :min_age AND age <= :max_age
         ORDER BY age
     '''
     results = user_table.select_by_sql(sql, {'min_age': 28, 'max_age': 32})

@@ -86,7 +86,7 @@ class TestIterMultiline:
             # Next '3,' (2) -> 5 + 1 + 2 = 8.
             # Next '4,' (2) -> 8 + 1 + 2 = 11.
             # Next '5,' (2) -> 11 + 1 + 2 = 14.
-            # Next '6,' (2) -> 14 + 1 + 2 = 17 > 15-4=11? 
+            # Next '6,' (2) -> 14 + 1 + 2 = 17 > 15-4=11?
             # Wait, remain_width = max_width - indent_width = 15 - 4 = 11.
             # '1,' (2). remain = 11 - 2 = 9.
             # '2,' (2). add_len = 3. 3 <= 9. remain = 9 - 3 = 6.
@@ -94,7 +94,7 @@ class TestIterMultiline:
             # '4,' (2). add_len = 3. 3 <= 3? Yes. remain = 3 - 3 = 0.
             # '5,' (2). add_len = 3. 3 > 0.
             # yield '1, 2, 3, 4'
-            # buffer = ['5,'] 
+            # buffer = ['5,']
             # remain_width = 11 - 2 = 9.
 
             items = [Item(gen, i) for i in range(1, 10)]

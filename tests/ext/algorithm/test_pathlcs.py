@@ -21,7 +21,6 @@ import pytest
 
 from alasio.ext.algorithm.pathlcs import PathLookbackLCS
 
-
 # ---------------------------------------------------------------------------
 # Tests for get_key()
 # ---------------------------------------------------------------------------
@@ -32,28 +31,28 @@ class TestGetKey:
 
     @pytest.mark.parametrize("path, suffix, char, lsecond", [
         # Standard paths
-        ("foo/bar/baz.py",         ".py",        "z", "a"),
-        ("foo/bar/baz.txt",        ".txt",       "z", "a"),
-        ("/etc/config.yaml",       ".yaml",      "g", "i"),
+        ("foo/bar/baz.py", ".py", "z", "a"),
+        ("foo/bar/baz.txt", ".txt", "z", "a"),
+        ("/etc/config.yaml", ".yaml", "g", "i"),
         # No extension — stem keeps last and second-to-the-last chars
-        ("foo/bar/baz",            "",           "z", "a"),
+        ("foo/bar/baz", "", "z", "a"),
         # Multiple dots — last dot wins
-        ("foo/bar.baz.tar.gz",     ".gz",        "r", "a"),
-        ("some.dir/file.txt",      ".txt",       "e", "l"),
+        ("foo/bar.baz.tar.gz", ".gz", "r", "a"),
+        ("some.dir/file.txt", ".txt", "e", "l"),
         # Dotfiles
-        ("foo/.gitignore",         ".gitignore", "", ""),
-        ("foo/.bashrc",            ".bashrc",    "", ""),
-        (".gitignore",             ".gitignore", "",  ""),
+        ("foo/.gitignore", ".gitignore", "", ""),
+        ("foo/.bashrc", ".bashrc", "", ""),
+        (".gitignore", ".gitignore", "", ""),
         # Empty / special
-        ("",                       "",           "",  ""),
-        (".",                      ".",          "",  ""),
+        ("", "", "", ""),
+        (".", ".", "", ""),
         # Single-char stem
-        ("a.py",                   ".py",        "a", ""),
-        ("ab.py",                  ".py",        "b", "a"),
+        ("a.py", ".py", "a", ""),
+        ("ab.py", ".py", "b", "a"),
         # Unicode
-        ("目录/文件.py",             ".py",        "件", "文"),
+        ("目录/文件.py", ".py", "件", "文"),
         # Backslash path (Windows-style)
-        ("C:\\\\Users\\\\me\\\\file.py",  ".py",        "e", "l"),
+        ("C:\\\\Users\\\\me\\\\file.py", ".py", "e", "l"),
     ])
     def test_get_key(self, path, suffix, char, lsecond):
         assert PathLookbackLCS.get_key(path) == (suffix, char, lsecond)
@@ -163,7 +162,7 @@ class TestGetLcsLevel1:
 
     @pytest.mark.parametrize("paths, query, expected_lookback, expected_length", [
         (["aaaaa.py", "bbaaa.py", "cccc.py"], "xxaaa.py", 2, 6),
-        (["ab.py", "cb.py"],                  "xb.py",    1, 4),
+        (["ab.py", "cb.py"], "xb.py", 1, 4),
     ])
     def test_best_match(self, paths, query, expected_lookback, expected_length):
         """Best LCS among candidates in the same sub-bucket."""
@@ -669,11 +668,11 @@ class TestIntegration:
 
         # Query "project_d/data.py": same stem "data", char='a', lsecond='t'
         # Level 1: ('.py', 'a', 't') has both data.py(0) and data.py(1)
-        #   Reversed: project_b/data.py(1) LCS=15? 
-        #   "project_d/data.py" vs "project_b/data.py": LCS = "a/data.py" = 8? 
+        #   Reversed: project_b/data.py(1) LCS=15?
+        #   "project_d/data.py" vs "project_b/data.py": LCS = "a/data.py" = 8?
         # Actually: "project_d/data.py" ends with "/data.py" and "project_b/data.py" ends with "/data.py"
         # The LCS of full paths: "a/data.py"? Let me compute exactly.
-        # "project_d/data.py" vs "project_b/data.py": 
+        # "project_d/data.py" vs "project_b/data.py":
         #   common suffix: "/data.py" = 8 chars (/, d, a, t, a, ., p, y)
         #   Actually "/data.py" reversed: y,p,.,a,t,a,d,/ - yes 8 chars
         #   Wait: "project_b/data.py" length = 17, "project_d/data.py" length = 17

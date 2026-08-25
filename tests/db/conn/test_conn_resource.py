@@ -8,10 +8,10 @@ from threading import Barrier, Thread
 
 from conftest import TEST_DATA_DIR
 
-
 # ============================================================================
 # Test Resource Management
 # ============================================================================
+
 
 class TestResourceManagement:
     """Test resource management"""

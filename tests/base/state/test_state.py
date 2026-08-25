@@ -3,8 +3,8 @@ Tests for alasio.base.state
 
 States are class-based (no instantiation). Fields must have type annotations and static default values.
 """
-import pytest
 import msgspec
+import pytest
 
 from alasio.base.state import GlobalState, TaskState
 

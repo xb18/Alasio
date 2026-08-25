@@ -2,7 +2,6 @@ import os
 
 import cv2
 import imageio
-import numpy as np
 
 from alasio.base.image.imfile import crop, image_channel
 from alasio.ext.path.atomic import replace_tmp, to_tmp_file

@@ -2,11 +2,7 @@ import threading
 
 import pytest
 
-from alasio.base.scheduler.task_record import (
-    TaskRecord,
-    TaskTooManyExecutionsError,
-    TaskTooManyFailuresError,
-)
+from alasio.base.scheduler.task_record import TaskRecord, TaskTooManyExecutionsError, TaskTooManyFailuresError
 from alasio.testing.patch_time import PatchTime
 
 

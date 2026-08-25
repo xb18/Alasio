@@ -17,10 +17,8 @@ if psutil.POSIX:
                 "calling process (os.getpid()) instead of PID 0")
         os.kill(pid, sig)
 
-
     def terminate(pid):
         _send_signal(pid, signal.SIGTERM)
-
 
     def kill(pid):
         _send_signal(pid, signal.SIGKILL)
@@ -28,10 +26,8 @@ if psutil.POSIX:
 elif psutil.WINDOWS:
     import psutil._psutil_windows as cext
 
-
     def terminate(pid):
         cext.proc_kill(pid)
-
 
     def kill(pid):
         cext.proc_kill(pid)

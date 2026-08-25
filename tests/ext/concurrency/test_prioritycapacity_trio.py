@@ -154,7 +154,7 @@ async def test_priority_capacity_limiter_cancel_after_notified():
 
     # If the logic is correct, the 'notified but cancelled' task should have called release() again
     # because it "stole" the token but didn't get to use it.
-    # Total tokens started at 1. We called release() once manually. 
+    # Total tokens started at 1. We called release() once manually.
     # The task should have called release() again when it caught Cancelled.
     # Thus available_tokens should be 1.
     assert limiter.available_tokens == 1

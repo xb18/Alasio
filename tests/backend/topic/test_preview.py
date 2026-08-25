@@ -1,7 +1,9 @@
+from unittest.mock import MagicMock, patch
+
+import pytest
 import trio
 import trio.testing
-import pytest
-from unittest.mock import MagicMock, patch
+
 from alasio.backend.topic.preview import PreviewTask
 from alasio.backend.ws.context import GLOBAL_CONTEXT
 
@@ -58,7 +60,7 @@ async def preview_task(mock_env, config_name) -> PreviewTask:
 @pytest.mark.trio
 async def test_preview_task_subscribe_starts_task(preview_task, worker, autojump_clock):
     """
-    Test that subscribing to a PreviewTask starts the background task 
+    Test that subscribing to a PreviewTask starts the background task
     and sends a preview command to the worker.
     """
     topic = MockTopic()

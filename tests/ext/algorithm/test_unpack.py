@@ -478,7 +478,7 @@ class TestPackLittleInt:
     # ------------------------------------------------------------------ #
 
     @pytest.mark.parametrize("value", [
-        0x010000,      #  65536  (smallest 3-byte value)
+        0x010000,      # 65536  (smallest 3-byte value)
         0x100000,      # 1048576
         0xFFFFFF,      # 16777215 (max 3-byte value)
     ])

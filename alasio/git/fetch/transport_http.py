@@ -1,10 +1,6 @@
-from io import BytesIO
-
 import httpx
-import trio
 
-from alasio.ext.path.atomic import atomic_write, file_write_stream
-from alasio.git.fetch.argument import Arguments
+from alasio.ext.path.atomic import atomic_write
 from alasio.git.fetch.pkt import FetchPayload, agather_bytes, aparse_packfile_stream, aparse_pkt_line, parse_pkt_line
 from alasio.git.fetch.transport import BaseTransport
 from alasio.logger import logger
@@ -26,7 +22,7 @@ class HttpTransport(BaseTransport):
 
         headers = self.capabilities.headers(protocol_v2=False)
         async with httpx.AsyncClient(
-                http2=True, follow_redirects=True, trust_env=False, proxy=self.arguments.proxy
+            http2=True, follow_redirects=True, trust_env=False, proxy=self.arguments.proxy
         ) as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
@@ -75,7 +71,7 @@ class HttpTransport(BaseTransport):
         content = payload.build()
 
         async with httpx.AsyncClient(
-                http2=True, follow_redirects=True, trust_env=False, proxy=self.arguments.proxy
+            http2=True, follow_redirects=True, trust_env=False, proxy=self.arguments.proxy
         ) as client:
             async with client.stream('POST', url, content=content, headers=headers) as response:
                 response.raise_for_status()
@@ -88,7 +84,7 @@ class HttpTransport(BaseTransport):
     async def fetch_pack_v2(self, payload: FetchPayload, output_file=None):
         """
         Fetch pack using HTTP Protocol v2.
-        
+
         Args:
             payload (FetchPayload): The fetch request payload.
             output_file (str): Write into output_file directly.
@@ -106,12 +102,12 @@ class HttpTransport(BaseTransport):
             'Content-Type': 'application/x-git-upload-pack-request',
             'Accept': 'application/x-git-upload-pack-result',
         })
-        
+
         # Build v2 payload: command=fetch + delimiter + want/have/done
         content = self._build_v2_payload(payload)
 
         async with httpx.AsyncClient(
-                http2=True, follow_redirects=True, trust_env=False, proxy=self.arguments.proxy
+            http2=True, follow_redirects=True, trust_env=False, proxy=self.arguments.proxy
         ) as client:
             async with client.stream('POST', url, content=content, headers=headers) as response:
                 response.raise_for_status()
@@ -124,7 +120,7 @@ class HttpTransport(BaseTransport):
     def _build_v2_payload(self, payload: FetchPayload):
         """
         Build Protocol v2 format payload.
-        
+
         v2 format:
             command=fetch
             0001  (delimiter)
@@ -132,31 +128,31 @@ class HttpTransport(BaseTransport):
             have <sha1>
             done
             0000
-        
+
         Args:
             payload (FetchPayload): Original v1 payload.
-            
+
         Returns:
             bytes: v2 formatted payload.
         """
         from alasio.git.fetch.pkt import create_pkt_line
-        
+
         lines = []
         # Command
         lines.append(create_pkt_line('command=fetch\n'))
         # Delimiter
         lines.append(b'0001')
-        
+
         # Directly iterate over payload (it's a deque of pkt-lines)
         # We need to extract the actual content from each pkt-line
         for pkt_line in payload:
             if pkt_line == b'0000':  # Skip delimiters from v1
                 continue
-            
+
             # Decode pkt-line: skip first 4 bytes (length header)
             if len(pkt_line) > 4:
                 content = pkt_line[4:].decode('utf-8', errors='ignore').strip()
-                
+
                 if content.startswith('want '):
                     # Remove capabilities from want line (everything after first space after SHA)
                     parts = content.split()
@@ -169,8 +165,8 @@ class HttpTransport(BaseTransport):
                     lines.append(create_pkt_line(content + '\n'))
                 elif content == 'done':
                     lines.append(create_pkt_line('done\n'))
-        
+
         # End with flush-pkt
         lines.append(b'0000')
-        
+
         return b''.join(lines)

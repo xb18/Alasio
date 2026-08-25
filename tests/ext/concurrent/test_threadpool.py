@@ -6,17 +6,8 @@ import pytest
 
 from alasio.ext.concurrent.cmd import CmdlineError, CmdlineResultStr
 from alasio.ext.concurrent.threadpool import (
-    THREAD_POOL,
-    Error,
-    GatherJobsWrapper,
-    Job,
-    JobTimeout,
-    ThreadPool,
-    WaitJobsWrapper,
-    JobKill,
-    remove_tb_frames,
+    THREAD_POOL, Error, GatherJobsWrapper, Job, JobKill, JobTimeout, ThreadPool, WaitJobsWrapper, remove_tb_frames
 )
-
 
 # ---------------------------------------------------------------------------
 # Synchronisation helpers

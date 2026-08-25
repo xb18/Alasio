@@ -3,7 +3,6 @@ from psutil import _psplatform as psplatform
 
 from alasio.ext.proc.cmd import get_cmdline
 
-
 # proc.py is an alternative of psutil.
 # It's 10+ times faster by directly access psutil's C bindings
 

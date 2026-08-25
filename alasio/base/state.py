@@ -1,7 +1,7 @@
 import copy
 import functools
 import types
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import msgspec
 from msgspec._core import Factory

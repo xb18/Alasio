@@ -41,7 +41,7 @@ class TestSerialStr:
         """
         Test revise_serial with various inputs
         """
-        # Some expected values might be intermediate, 
+        # Some expected values might be intermediate,
         # but the final output should be the fully revised one.
         # For example, "5555,16384" -> "16384" -> "127.0.0.1:16384"
         result = SerialStr.revise_serial(input_serial)

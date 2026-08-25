@@ -16,6 +16,7 @@ def patch_mimetype():
     all deployment, we use the builtin mimetype table only.
     """
     import mimetypes
+
     # lock as inited
     mimetypes.inited = True
     # create a new clean instance
@@ -123,6 +124,7 @@ def patch_environ():
     removes = set(python_environment_variables + proxy_environment_variables)
 
     import os
+
     # listify to safely iterate
     environs = [key for key in os.environ]
     for key in environs:

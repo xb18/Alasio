@@ -8,7 +8,6 @@ every previously stored path.
 
 from alasio.ext.algorithm.pathlcs_v3 import PathLookbackLCSV3
 
-
 # ---------------------------------------------------------------------------
 # Tests for add_path()
 # ---------------------------------------------------------------------------
@@ -260,11 +259,11 @@ class TestGetLcsBestMatch:
         # Last chars: n vs n -> match, next: o vs o -> no
         # Wait: "...json" vs "...bin": n vs n (1), o vs i (0)
         # Common suffix = "n" = 1
-        # 
+        #
         # "suffix_data.json" vs "data.txt":
         # "...json" vs ".txt": n vs t -> 0
         # Hmm, so LCS might be "a" or something?
-        # 
+        #
         # Actually let me think again:
         # "suffix_data.json" and "prefix_data.bin":
         # reversed string comparison:
@@ -275,12 +274,12 @@ class TestGetLcsBestMatch:
         # "suffix_data.json" and "data.txt":
         # "n" vs "t" -> no match
         # So LCS = 0?
-        # 
+        #
         # Hmm wait, maybe there's something I'm missing.
         # Actually the strings are:
         #   s1 = "suffix_data.json"
         #   s2 = "prefix_data.bin"
-        # 
+        #
         # Last chars: s1[-1] = 'n', s2[-1] = 'n' -> match
         # s1[-2] = 'o', s2[-2] = 'i' -> no match
         # So LCS = 1
@@ -319,7 +318,7 @@ class TestGetLcsBestMatch:
         #   Position 0-11: "nonmoc_nsij_"  (12 chars)
         #   Position 12: x vs b -> no match
         #   So LCS = 12
-        # 
+        #
         # Best = idx 1 with LCS=12
         lookback, length = lcs.get_lcs("xxxx_json_common")
         assert lookback == 1

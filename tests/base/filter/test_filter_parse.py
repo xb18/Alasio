@@ -2,10 +2,10 @@ import pytest
 
 from alasio.base.filter import parse_filter, remove_hash_comment
 
-
 # -----------------------------------------------------------------------------
 # Tests for remove_hash_comment
 # -----------------------------------------------------------------------------
+
 
 def test_remove_hash_comment_basic():
     """Test simple string without comments."""
@@ -34,12 +34,8 @@ def test_remove_hash_comment_full_line():
 
 def test_remove_hash_comment_whitespace_handling():
     """Test that surrounding whitespace is stripped and empty lines are removed."""
-    s = """
-
-      DailyEvent   # Comment
-
-    Gem-8  
-    """
+    # Trailing spaces after "Gem-8" are intentional test data
+    s = '\n\n      DailyEvent   # Comment\n\n    Gem-8  \n'
     expected = "DailyEvent\nGem-8"
     assert remove_hash_comment(s) == expected
 

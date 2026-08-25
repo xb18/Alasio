@@ -8,10 +8,10 @@ import pytest
 from alasio.ext.concurrent.processpool import ProcessPool
 from alasio.testing.timeout import AssertTimeout
 
-
 # ===========================
 # Helper Functions (Must be picklable)
 # ===========================
+
 
 def worker_add(a, b):
     return a + b
@@ -60,7 +60,7 @@ def test_concurrency():
         results = [job.get() for job in jobs]
 
         assert len(results) == count
-        # PIDs should be unique per worker process. 
+        # PIDs should be unique per worker process.
         # Since we have 2 workers, we expect at most 2 unique PIDs usually,
         # but if a worker is recycled, it keeps PID.
         unique_pids = set(results)

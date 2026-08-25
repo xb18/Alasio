@@ -1,5 +1,3 @@
-from typing import Tuple
-
 from alasio.ext.path.atomic import atomic_read_bytes
 from alasio.git.file.exception import PackBroken
 from alasio.git.file.idx import IdxFile
@@ -98,7 +96,7 @@ class PackFile(IdxFile):
             skip_size (int):
 
         Returns:
-            Tuple[int, int, list[Tuple[str, int, int]]]:
+            tuple[int, int, list[tuple[str, int, int]]]:
                 segment_start, segment_size, segment
                     where segment is a list if (sha1, offset_start, offset_end)
         """

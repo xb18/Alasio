@@ -8,10 +8,10 @@ from threading import Barrier, Thread
 
 from alasio.db.conn import ConnectionPool
 
-
 # ============================================================================
 # Test Concurrency Safety
 # ============================================================================
+
 
 class TestConcurrency:
     """Test concurrency safety"""

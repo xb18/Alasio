@@ -4,7 +4,7 @@ from typing import Iterator, List, Optional, Tuple, Union
 from msgspec import Struct
 
 from alasio.assets.template import Template
-from alasio.base.op import Area, RGB
+from alasio.base.op import RGB, Area
 
 
 class MetaTemplate(Struct, omit_defaults=True):

@@ -8,7 +8,7 @@ from msgspec import Struct
 from alasio.ext.cache import cached_property
 from alasio.git.file.exception import ObjectBroken, PackBroken
 from alasio.git.file.gitobject import GitObjectManager
-from alasio.git.obj.obj import GitObject, OBJTYPE_BASIC, parse_objdata_return_info
+from alasio.git.obj.obj import OBJTYPE_BASIC, GitObject, parse_objdata_return_info
 from alasio.git.obj.objdelta import OfsDeltaObj, RefDeltaObj, parse_delta_object, parse_ofs_delta_info
 from alasio.logger import logger
 

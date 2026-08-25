@@ -1,11 +1,6 @@
 import pytest
 
-from alasio.ext.algorithm.zigzag import (
-    encode_zigzag,
-    encode_zigzag_iter,
-    decode_zigzag,
-    decode_zigzag_iter,
-)
+from alasio.ext.algorithm.zigzag import decode_zigzag, decode_zigzag_iter, encode_zigzag, encode_zigzag_iter
 
 
 class TestEncodeZigzag:

@@ -2,10 +2,10 @@ from alasio.assets.model.parser import AssetParser, MetaAsset, MetaTemplate
 from alasio.assets.template import Template
 from alasio.base.image.imfile import ImageBroken, image_load, image_save
 from alasio.base.op import Area
+from alasio.codegen.python import CodeGen, ReprWrapper
 from alasio.config.entry.const import DICT_MOD_ENTRY, ModEntryInfo
 from alasio.ext import env
 from alasio.ext.cache import cached_property
-from alasio.codegen.python import CodeGen, ReprWrapper
 from alasio.ext.path import PathStr
 from alasio.ext.path.atomic import atomic_remove
 from alasio.ext.path.calc import to_posix

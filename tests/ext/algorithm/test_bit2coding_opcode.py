@@ -12,7 +12,6 @@ import pytest
 
 from alasio.ext.algorithm.bit2coding import decode_bit2_opcode, encode_bit2_opcode_iter
 
-
 # ==============================================================================
 # encode_bit2_opcode_iter — edge cases
 # ==============================================================================

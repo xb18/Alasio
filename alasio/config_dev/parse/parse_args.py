@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Literal, Union
 
 import msgspec
-from msgspec import Struct, UNSET, UnsetType
+from msgspec import UNSET, Struct, UnsetType
 
 from alasio.backport import to_literal
 from alasio.codegen.python import ReprWrapper
@@ -257,7 +257,7 @@ def preprocess_arg(arg: dict) -> dict:
                     raise DefinitionError(f'datatype "{dt}" option must be list')
                 for item in option:
                     validate_literal_item(item)
-    
+
     vtype = type(value)
     # Timezone default to UTC
     if vtype is datetime and not value.tzinfo:

@@ -197,7 +197,7 @@ def create_pkt_line(data):
     """
     if isinstance(data, str):
         data = data.encode('utf-8')
-    
+
     # Standard pkt-line length is len(data) + 4
     length = len(data) + 4
     length_hex = f'{length:04x}'.encode('utf-8')

@@ -405,7 +405,6 @@ if __name__ == "__main__":
                     arr[j], arr[j + 1] = arr[j + 1], arr[j]
         return arr
 
-
     def selection_sort(arr):
         """Selection sort algorithm"""
         arr = arr.copy()
@@ -418,11 +417,9 @@ if __name__ == "__main__":
             arr[i], arr[min_idx] = arr[min_idx], arr[i]
         return arr
 
-
     def python_sort(arr):
         """Python built-in sort"""
         return sorted(arr)
-
 
     # Test with different data types including paths
     small_data = [64, 34, 25, 12, 22, 11, 90]
@@ -440,9 +437,9 @@ if __name__ == "__main__":
     ========================================================
     Performance Test Results
     ========================================================
-    Function             Iterations   Average      Slower    
+    Function             Iterations   Average      Slower
     --------------------------------------------------------
-    python_sort          549846       0.462us      (fastest) 
+    python_sort          549846       0.462us      (fastest)
     selection_sort       38596        7.723us      16.71x
     bubble_sort          29060        10.425us     22.55x
     --------------------------------------------------------

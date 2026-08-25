@@ -1,4 +1,5 @@
 import pytest
+
 from alasio.adb.protocol.cnxn import DeviceFeatures
 
 

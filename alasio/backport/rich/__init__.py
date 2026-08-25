@@ -20,7 +20,7 @@ def patch_rich_traceback_extract():
         # no rich, no need to patch
         return True
 
-    from importlib.metadata import version, PackageNotFoundError
+    from importlib.metadata import PackageNotFoundError, version
     try:
         ver = version('rich')
     except PackageNotFoundError:
@@ -72,8 +72,8 @@ def patch_rich_traceback_links():
     so it can be clickable in IDE (IDEs will parse them as clickable)
     """
     try:
-        from rich.traceback import Traceback
         from rich.text import Text
+        from rich.traceback import Traceback
     except ImportError:
         # no rich, no need to patch
         return True

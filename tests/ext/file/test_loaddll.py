@@ -67,7 +67,7 @@ def test_loaddll_linux_libc():
         if os.path.exists(p):
             path = p
             break
-            
+
     if path is None:
         pytest.skip("libc not found at expected paths")
 

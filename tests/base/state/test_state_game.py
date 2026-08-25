@@ -7,7 +7,7 @@ which validates via msgspec.convert against the struct model.
 import msgspec
 import pytest
 
-from alasio.base.state import GameStateBase, _StateDispatcher
+from alasio.base.state import GameStateBase
 
 
 class TestGameStateDefaults:

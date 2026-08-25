@@ -1,14 +1,15 @@
-import pytest
-import msgspec
-import uuid
 import datetime
 import sys
-from typing import Optional, List, Dict, Any
+import uuid
+from typing import Any, Dict, List, Optional
+
+import msgspec
+import pytest
 
 from alasio.db.validate import generate_example
 
-
 # --- 1. Define Models for Testing ---
+
 
 class SimpleModel(msgspec.Struct):
     """A basic model with required primitive types."""

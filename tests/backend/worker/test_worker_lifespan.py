@@ -17,6 +17,7 @@ from tests.backend.worker.const import *
 # Fixtures
 # ============================================================================
 
+
 def assert_worker_gone(workers):
     """
     Assert that no worker process exists for the given workers

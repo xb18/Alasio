@@ -5,15 +5,15 @@ import msgspec as m
 import pytest
 
 from alasio.base.servertime import ServerTime
-from alasio.config.alasio.group_base import DEFAULT_TIME, GroupBase, T_DATETIME, T_INT_GE0
+from alasio.config.alasio.group_base import DEFAULT_TIME, T_DATETIME, T_INT_GE0, GroupBase
 from alasio.config.alasio.group_proxy import GroupProxy
 from alasio.config.base import BatchSetContext
 from alasio.config.const import DataInconsistent
 
-
 # ---- Test models ----
 # Must inherit from BaseModel so that BaseModel.classmethod(cls, attr)
 # can be called as TestModel.classmethod(attr) naturally.
+
 
 class MetaTestModel(GroupBase):
     """Model with various msgspec meta annotations for testing BaseModel.get_meta"""

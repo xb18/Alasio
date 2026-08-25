@@ -7,10 +7,10 @@ from starlette.exceptions import HTTPException
 from typing_extensions import Annotated
 
 from alasio.backend.auth.fail2ban import Fail2Ban
-from alasio.ext.starapi.param import Cookie, Depends, SetCookie
-from alasio.ext.starapi.router import APIRouter
 from alasio.config.table.key import AlasioKeyTable
 from alasio.ext.cache import cached_property
+from alasio.ext.starapi.param import Cookie, Depends, SetCookie
+from alasio.ext.starapi.router import APIRouter
 
 
 class JwtManager:

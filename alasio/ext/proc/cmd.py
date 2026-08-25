@@ -7,7 +7,6 @@ if psutil.LINUX:
     import psutil._psutil_linux as cext
     from psutil._common import get_procfs_path, open_text
 
-
     def cmdline(pid):
         procfs_path = get_procfs_path()
         with open_text("%s/%s/cmdline" % (procfs_path, pid)) as f:
@@ -37,7 +36,6 @@ if psutil.LINUX:
 elif psutil.WINDOWS:
     import psutil._psutil_windows as cext
 
-
     def cmdline(pid):
         # [MODIFIED] No permission fallback on > WINDOWS_8_1 because we don't need that precise
         # [MODIFIED] No PY2 support
@@ -46,13 +44,11 @@ elif psutil.WINDOWS:
 elif psutil.MACOS:
     import psutil._psutil_osx as cext
 
-
     def cmdline(pid):
         return cext.proc_cmdline(pid)
 
 elif psutil.BSD:
     import psutil._psutil_bsd as cext
-
 
     def cmdline(pid):
         if psutil.OPENBSD and pid == 0:
@@ -73,7 +69,6 @@ elif psutil.BSD:
 elif psutil.SUNOS:
     import psutil._psutil_sunos as cext
 
-
     def cmdline(pid):
         # [MODIFIED] Flatten _proc_name_and_args
         procfs_path = get_procfs_path()
@@ -83,7 +78,6 @@ elif psutil.SUNOS:
 
 elif psutil.AIX:
     import psutil._psutil_aix as cext
-
 
     def cmdline(pid):
         return cext.proc_args(pid)

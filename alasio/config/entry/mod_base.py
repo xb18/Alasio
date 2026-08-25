@@ -1,5 +1,5 @@
 from alasio.config.entry.const import ModEntryInfo
-from alasio.config.entry.model import DECODER_CACHE, MODEL_CONFIG_INDEX, MODEL_TASK_INDEX, MOD_JSON_CACHE
+from alasio.config.entry.model import DECODER_CACHE, MOD_JSON_CACHE, MODEL_CONFIG_INDEX, MODEL_TASK_INDEX
 from alasio.ext import env
 from alasio.ext.file.loadpy import LOADPY_CACHE
 from alasio.ext.path import PathStr

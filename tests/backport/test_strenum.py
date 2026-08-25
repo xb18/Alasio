@@ -46,7 +46,7 @@ class TestStrEnum:
 
         # Even if values match, it's not a member of Color
         # However, it IS a string, and its value is "blue"
-        # Wait, if Other.BLUE is a string, and value is "blue", 
+        # Wait, if Other.BLUE is a string, and value is "blue",
         # and "blue" is not in Color, then it's False.
         # If Other.BLUE value was "red", what then?
         class OtherRed(StrEnum):

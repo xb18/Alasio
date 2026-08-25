@@ -140,7 +140,7 @@ class SimplePip:
             if not name.endswith('.dist-info'):
                 continue
             name = removesuffix(name, '.dist-info')
-            if not '-' in name:
+            if '-' not in name:
                 continue
             package, _, _ = name.partition('-')
             out[package] = folder

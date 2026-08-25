@@ -6,8 +6,8 @@ import pytest
 from alasio.backend.reactive.rx_sync import ReactiveCallback, reactive, reactive_source
 from alasio.ext.singleton import Singleton
 
-
 # ---- Test Helper Classes (Now as Singletons) ----
+
 
 class Calculator(ReactiveCallback, metaclass=Singleton):
     """

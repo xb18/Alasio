@@ -1,6 +1,6 @@
 import struct
 
-from alasio.ext.algorithm.const import MAX_INT64, MAX_UINT16, MAX_UINT24, MAX_UINT32, MAX_UINT8
+from alasio.ext.algorithm.const import MAX_INT64, MAX_UINT8, MAX_UINT16, MAX_UINT24, MAX_UINT32
 
 UINT8_unpacker = struct.Struct('<B').unpack_from
 UINT16_unpacker = struct.Struct('<H').unpack_from

@@ -3,8 +3,9 @@ from collections import defaultdict
 from msgspec import NODEFAULT, ValidationError, convert
 from msgspec.msgpack import encode
 from msgspec.structs import asdict
-from msgspecerror import (ErrorInfo, ErrorType, get_field_default, get_model_changes, load_msgpack_with_default,
-                          parse_msgspec_error)
+from msgspecerror import (
+    ErrorInfo, ErrorType, get_field_default, get_model_changes, load_msgpack_with_default, parse_msgspec_error
+)
 
 from alasio.base.pretty import pretty_value
 from alasio.config.const import DataInconsistent

@@ -1,5 +1,4 @@
 import _io
-
 import pytest
 
 from alasio.ext.file.loadpy import LOADPY_CACHE, loadpy

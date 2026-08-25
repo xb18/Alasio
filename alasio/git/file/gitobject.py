@@ -6,7 +6,7 @@ from alasio.ext.path.calc import joinnormpath
 from alasio.git.file.exception import PackBroken
 from alasio.git.file.loose import LoosePath
 from alasio.git.file.pack import PackFile
-from alasio.git.obj.obj import GitLooseObject, GitObject, OBJTYPE_BASIC, parse_objdata
+from alasio.git.obj.obj import OBJTYPE_BASIC, GitLooseObject, GitObject, parse_objdata
 from alasio.git.stage.base import GitRepoBase
 
 

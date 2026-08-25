@@ -1,7 +1,9 @@
 import trio
 
 from alasio.ext.path.atomic import atomic_write
-from alasio.git.fetch.pkt import FetchPayload, agather_bytes, aparse_packfile_stream, aparse_pkt_line, create_pkt_line, parse_pkt_line
+from alasio.git.fetch.pkt import (
+    FetchPayload, agather_bytes, aparse_packfile_stream, aparse_pkt_line, create_pkt_line, parse_pkt_line
+)
 from alasio.git.fetch.transport import BaseTransport
 from alasio.logger import logger
 
@@ -113,7 +115,7 @@ class GitTransport(BaseTransport):
     async def fetch_pack_v2(self, payload: FetchPayload, output_file=None):
         """
         Fetch pack using Git Protocol v2.
-        
+
         Args:
             payload (FetchPayload): The fetch request payload.
             output_file (str): Write into output_file directly.
@@ -165,7 +167,7 @@ class GitTransport(BaseTransport):
     def _build_v2_payload(self, payload: FetchPayload):
         """
         Build Protocol v2 format payload.
-        
+
         v2 format:
             command=fetch
             0001  (delimiter)
@@ -173,10 +175,10 @@ class GitTransport(BaseTransport):
             have <sha1>
             done
             0000
-        
+
         Args:
             payload (FetchPayload): Original v1 payload.
-            
+
         Returns:
             bytes: v2 formatted payload.
         """
@@ -185,16 +187,16 @@ class GitTransport(BaseTransport):
         lines.append(create_pkt_line('command=fetch\n'))
         # Delimiter
         lines.append(b'0001')
-        
+
         # Directly iterate over payload (it's a deque of pkt-lines)
         for pkt_line in payload:
             if pkt_line == b'0000':  # Skip delimiters from v1
                 continue
-            
+
             # Decode pkt-line: skip first 4 bytes (length header)
             if len(pkt_line) > 4:
                 content = pkt_line[4:].decode('utf-8', errors='ignore').strip()
-                
+
                 if content.startswith('want '):
                     # Remove capabilities from want line
                     parts = content.split()
@@ -207,8 +209,8 @@ class GitTransport(BaseTransport):
                     lines.append(create_pkt_line(content + '\n'))
                 elif content == 'done':
                     lines.append(create_pkt_line('done\n'))
-        
+
         # End with flush-pkt
         lines.append(b'0000')
-        
+
         return b''.join(lines)

@@ -11,7 +11,7 @@ from alasio.backport import removeprefix
 from alasio.base.image.color import get_color
 from alasio.base.image.draw import get_bbox
 from alasio.base.image.imfile import ImageBroken, crop, image_load, image_size
-from alasio.base.op import Area, RGB, random_id
+from alasio.base.op import RGB, Area, random_id
 from alasio.config.entry.const import DICT_MOD_ENTRY
 from alasio.ext import env
 from alasio.ext.cache import cached_property

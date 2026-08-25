@@ -1,9 +1,10 @@
-import pytest
+import time
 from multiprocessing import Pipe
 from threading import Thread
-import time
 
+import pytest
 from msgspec.msgpack import decode
+
 from alasio.backend.worker.bridge import BackendBridge
 from alasio.backend.worker.event import ConfigEvent
 

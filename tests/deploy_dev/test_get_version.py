@@ -1,4 +1,5 @@
 import pytest
+
 from alasio.deploy_dev.get_version import get_version_from_source
 
 

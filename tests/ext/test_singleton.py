@@ -1,15 +1,16 @@
-import pytest
 import threading
 from typing import List
 
-from alasio.ext.singleton import Singleton, SingletonNamed, SingletonOptionalNamed
+import pytest
 
+from alasio.ext.singleton import Singleton, SingletonNamed, SingletonOptionalNamed
 
 # ==============================================================================
 # Test Fixtures and Helper Classes
 # ==============================================================================
 
 # --- Define base classes for testing ---
+
 
 class BaseService(metaclass=Singleton):
     """A standard class using the Singleton metaclass."""

@@ -1,9 +1,6 @@
 import pytest
 
-from alasio.config_dev.format.validate_color import (
-    RE_DASHBOARD_COLOR,
-    validate_dashboard_color,
-)
+from alasio.config_dev.format.validate_color import RE_DASHBOARD_COLOR, validate_dashboard_color
 from alasio.config_dev.parse.base import DefinitionError
 
 

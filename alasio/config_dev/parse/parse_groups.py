@@ -2,12 +2,12 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, Tuple
 
 import msgspec
-from msgspec import Struct, UNSET
+from msgspec import UNSET, Struct
 
 from alasio.config.entry.utils import validate_task_name
+from alasio.config_dev.format.validate_color import validate_dashboard_color
 from alasio.config_dev.parse.base import DefinitionError, ParseBase
 from alasio.config_dev.parse.parse_args import ArgData
-from alasio.config_dev.format.validate_color import validate_dashboard_color
 from alasio.ext.cache import cached_property
 from alasio.ext.deep import deep_iter_depth1
 

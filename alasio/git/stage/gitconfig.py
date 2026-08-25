@@ -27,6 +27,7 @@ class GitConfig:
             configparser.ConfigParser:
         """
         import configparser
+
         # No interpolation
         parser = configparser.ConfigParser(interpolation=None)
         # Preserve case of keys/options

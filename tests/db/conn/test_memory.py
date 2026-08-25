@@ -15,10 +15,10 @@ import pytest
 
 from alasio.db.conn import ConnectionPool, SqlitePool
 
-
 # ============================================================================
 # Test :memory: with ConnectionPool
 # ============================================================================
+
 
 class TestConnectionPoolMemory:
     """Test ConnectionPool with :memory: database"""

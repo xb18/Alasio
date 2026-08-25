@@ -18,6 +18,7 @@ class BackendSupervisor(Supervisor):
             up (int): Uppath from gui.py to project root
         """
         import sys
+
         from alasio.ext.path import PathStr
 
         gui_args = sys.argv[1:]

@@ -6,10 +6,8 @@ import psutil
 if psutil.LINUX:
     import psutil._psutil_posix as cetx
 
-
     def nice_get(pid):
         return cetx.getpriority(pid)
-
 
     def nice_set(pid, value):
         return cetx.setpriority(pid, value)
@@ -17,10 +15,8 @@ if psutil.LINUX:
 elif psutil.WINDOWS:
     import psutil._psutil_windows as cext
 
-
     def nice_get(pid):
         return cext.proc_priority_get(pid)
-
 
     def nice_set(pid, value):
         return cext.proc_priority_set(pid, value)
@@ -29,10 +25,8 @@ elif psutil.MACOS:
     # MACOS uses cext_posix
     import psutil._psutil_posix as cext_posix
 
-
     def nice_get(pid):
         return cext_posix.getpriority(pid)
-
 
     def nice_set(pid, value):
         return cext_posix.setpriority(pid, value)
@@ -41,25 +35,21 @@ elif psutil.BSD:
     # BSD uses cext_posix
     import psutil._psutil_posix as cext_posix
 
-
     def nice_get(pid):
         return cext_posix.getpriority(pid)
-
 
     def nice_set(pid, value):
         return cext_posix.setpriority(pid, value)
 
 elif psutil.SUNOS:
     import psutil._psutil_posix as cext_posix
-    from psutil._pssunos import get_procfs_path, cext, proc_info_map
     from psutil._common import AccessDenied
-
+    from psutil._pssunos import cext, get_procfs_path, proc_info_map
 
     def nice_get(pid):
         if pid in (2, 3):
             return cext.proc_basic_info(pid, get_procfs_path())[proc_info_map['nice']]
         return cext_posix.getpriority(pid)
-
 
     def nice_set(pid, value):
         if pid in (2, 3):
@@ -70,10 +60,8 @@ elif psutil.AIX:
     # AIX uses cext_posix
     import psutil._psutil_posix as cext_posix
 
-
     def nice_get(pid):
         return cext_posix.getpriority(pid)
-
 
     def nice_set(pid, value):
         return cext_posix.setpriority(pid, value)

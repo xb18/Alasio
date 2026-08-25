@@ -157,10 +157,13 @@ key3: value3
 
     def test_trailing_spaces_removed(self):
         """Test trailing spaces are removed from all lines"""
-        input_yaml = b"""key1: value1   
-  nested: value   
-
-key2: value2   """
+        # Trailing spaces are intentional test data
+        input_yaml = (
+            b'key1: value1   \n'
+            b'  nested: value   \n'
+            b'\n'
+            b'key2: value2   '
+        )
         expected = b"""key1: value1
   nested: value
 

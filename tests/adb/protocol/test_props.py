@@ -1,4 +1,5 @@
 import pytest
+
 from alasio.adb.protocol.props import Props, remove_quote
 
 # Real getprop output from Android device

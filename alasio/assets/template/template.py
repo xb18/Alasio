@@ -2,7 +2,7 @@ import cv2
 
 from alasio.base.image.color import color_similarity, get_color, rgb2luma
 from alasio.base.image.imfile import crop, image_channel, image_load, image_shape, image_size
-from alasio.base.op import Area, Point, RGB
+from alasio.base.op import RGB, Area, Point
 from alasio.ext import env
 from alasio.ext.cache import cached_property
 from alasio.logger import logger

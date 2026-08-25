@@ -8,7 +8,7 @@ from typing import Any, Iterable, List, Optional, Set, Tuple, Type
 
 from exceptiongroup import BaseExceptionGroup, ExceptionGroup
 from rich import pretty
-from rich.traceback import Frame, LOCALS_MAX_LENGTH, LOCALS_MAX_STRING, Stack, Trace, Traceback, _SyntaxError
+from rich.traceback import LOCALS_MAX_LENGTH, LOCALS_MAX_STRING, Frame, Stack, Trace, Traceback, _SyntaxError
 
 
 class RichTracebackBackport(Traceback):

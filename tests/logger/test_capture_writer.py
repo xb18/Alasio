@@ -61,14 +61,14 @@ class TestMockCaptureWriter:
                 logger.info("Inner")
                 assert inner.fd.any_contains("Inner")
                 assert not inner.fd.any_contains("Outer 1")
-            
+
             logger.info("Outer 2")
-            
+
             # Outer should have everything that happened in its context
             assert outer.fd.any_contains("Outer 1")
             assert outer.fd.any_contains("Inner")
             assert outer.fd.any_contains("Outer 2")
-            
+
             # Inner should only have what happened in its context
             assert len(inner.fd.logs) == 1
             assert inner.fd.any_contains("Inner")
@@ -84,7 +84,7 @@ class TestMockCaptureWriter:
                 logger.info("Inner 1")
                 inner.clear()
                 logger.info("Inner 2")
-            
+
             # Inner and Outer are separate storages, but Inner passes logs to Outer
             # when they are emitted. Clearing Inner doesn't clear Outer.
             assert outer.fd.any_contains("Inner 1")

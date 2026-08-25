@@ -11,7 +11,6 @@ from alasio.ext.cache import cached_property
 from alasio.ext.deep import *
 from alasio.ext.file.loadpy import LOADPY_CACHE
 from alasio.ext.file.msgspecfile import deepcopy_msgpack
-from alasio.ext.path import PathStr
 from alasio.ext.path.calc import is_abspath, joinnormpath
 from alasio.logger import logger
 

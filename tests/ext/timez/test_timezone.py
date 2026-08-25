@@ -1,9 +1,9 @@
-import pytest
 import datetime
 
-import alasio.ext.timez as time_converter
+import pytest
 
-from alasio.ext.timez import to_local_naive, to_local_aware
+import alasio.ext.timez as time_converter
+from alasio.ext.timez import to_local_aware, to_local_naive
 
 
 @pytest.fixture

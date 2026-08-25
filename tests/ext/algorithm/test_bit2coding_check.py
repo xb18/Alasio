@@ -6,11 +6,11 @@ for bit2 encoding.  Without ``ext8``, values must be 0-3; with ``ext8=True``,
 values 0-7 are allowed.  Negative values are always rejected.
 """
 
-import pytest
 from collections import deque
 
-from alasio.ext.algorithm.bit2coding import _encode_value_check
+import pytest
 
+from alasio.ext.algorithm.bit2coding import _encode_value_check
 
 # ==============================================================================
 # Empty input — accepted without exception

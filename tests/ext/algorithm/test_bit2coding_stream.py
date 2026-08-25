@@ -10,12 +10,7 @@ import struct
 
 import pytest
 
-from alasio.ext.algorithm.bit2coding import (
-    decode_bit2_stream_iter,
-    encode_bit2_stream_iter,
-    encode_length_int,
-)
-
+from alasio.ext.algorithm.bit2coding import decode_bit2_stream_iter, encode_bit2_stream_iter, encode_length_int
 
 # ==============================================================================
 # encode_bit2_stream_iter — literal opcodes

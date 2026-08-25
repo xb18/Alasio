@@ -84,7 +84,7 @@ class APIRouter(routing.Router):
         self.dependencies = list(dependencies) if dependencies is not None else []
         super().__init__()
 
-    def mount(self, path, app, name = None) -> None:
+    def mount(self, path, app, name=None) -> None:
         path = self.prefix + path
         route = APIMount(path=path, app=app, name=name)
         self.routes.append(route)

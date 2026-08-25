@@ -1,7 +1,6 @@
 import sys
 from typing import Generator
 
-
 if sys.version_info < (3, 12):
     # no itertools.batched() on Python<3.12
     def batched(iterable, n: int, *, strict: bool = False) -> "Generator[tuple]":
@@ -60,7 +59,6 @@ if sys.version_info < (3, 12):
 elif sys.version_info < (3, 13):
     # having itertools.batched() but no `strict` argument on Python==3.12
     from itertools import batched as _batched
-
 
     def batched(iterable, n: int, *, strict: bool = False) -> "Generator[tuple]":
         for group in _batched(iterable, n):

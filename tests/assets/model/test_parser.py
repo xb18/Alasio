@@ -1,7 +1,7 @@
 import pytest
 
 from alasio.assets.model.parser import AssetParser, MetaAsset, MetaTemplate
-from alasio.base.op import Area, RGB
+from alasio.base.op import RGB, Area
 from alasio.ext.path import PathStr
 
 

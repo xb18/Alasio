@@ -79,7 +79,7 @@ import typing
     def test_lazy_import_with_alias(self):
         gen = CodeGen()
         gen.Import('typing').as_('t').lazy()
-        
+
         # Use alias
         gen.use_import('t')
         assert gen.generate_str() == "import typing as t\n"

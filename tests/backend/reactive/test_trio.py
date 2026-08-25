@@ -4,13 +4,8 @@ from unittest.mock import MagicMock
 import pytest
 import trio
 
-from alasio.backend.reactive.rx_trio import (
-    AsyncReactiveCallback,
-    async_reactive,
-    async_reactive_source,
-)
+from alasio.backend.reactive.rx_trio import AsyncReactiveCallback, async_reactive, async_reactive_source
 from alasio.ext.singleton import Singleton
-
 
 # ---- Test Helper Classes (Now as Singletons) ----
 

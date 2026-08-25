@@ -244,16 +244,16 @@ if __name__ == "__main__":
     ===============================================================================================
     State                Latency (ms)    HTTP Code    URL                                      Details
     ------------------   -------------   ----------   --------------------------------------   --------------------
-    In Window            201.12          200          https://mirrors.aliyun.com/pypi/simple/  
-    In Window            335.01          200          https://pypi.tuna.tsinghua.edu.cn/sim... 
-    In Window            641.90          200          https://pypi.org/simple/                 
-    In Window            N/A             N/A          https://this-site-definitely-does-not... ConnectError: [Errno 
+    In Window            201.12          200          https://mirrors.aliyun.com/pypi/simple/
+    In Window            335.01          200          https://pypi.tuna.tsinghua.edu.cn/sim...
+    In Window            641.90          200          https://pypi.org/simple/
+    In Window            N/A             N/A          https://this-site-definitely-does-not... ConnectError: [Errno
     11001] getaddrinfo failed
-    Cancelled            N/A             N/A          https://httpbin.org/delay/3              Cancelled after 
+    Cancelled            N/A             N/A          https://httpbin.org/delay/3              Cancelled after
     primary result was found
-    Cancelled            N/A             N/A          https://httpbin.org/status/404           Cancelled after 
+    Cancelled            N/A             N/A          https://httpbin.org/status/404           Cancelled after
     primary result was found
-    Cancelled            N/A             N/A          https://google.com:81                    Cancelled after 
+    Cancelled            N/A             N/A          https://google.com:81                    Cancelled after
     primary result was found
     -----------------------------------------------------------------------------------------------
     """

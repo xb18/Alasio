@@ -6,10 +6,10 @@ from collections import deque
 from alasio.backport import process_cpu_count
 from alasio.ext.concurrent.processworker import worker_loop
 
-
 # ===========================
 # 辅助类定义
 # ===========================
+
 
 class Job:
     """

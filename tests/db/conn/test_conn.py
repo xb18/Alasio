@@ -9,14 +9,14 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
-
-from alasio.db.conn import (ConnectionPool, SQLITE_POOL, SqlitePool)
 from conftest import TEST_DATA_DIR
 
+from alasio.db.conn import SQLITE_POOL, ConnectionPool, SqlitePool
 
 # ============================================================================
 # Test ConnectionPool.new_conn and set_conn_pragma
 # ============================================================================
+
 
 class TestConnectionCreation:
     """Test connection creation"""
@@ -243,7 +243,7 @@ class TestExclusiveTransaction:
 
     def test_exclusive_transaction_is_exclusive(self, pool):
         """Test exclusive transaction is truly exclusive"""
-        from threading import Thread, Barrier
+        from threading import Barrier, Thread
 
         # Create table
         with pool.cursor() as cursor:

@@ -1,4 +1,4 @@
-from alasio.adb.utils.remove_warning import remove_shell_warning, remove_screenshot_warning
+from alasio.adb.utils.remove_warning import remove_screenshot_warning, remove_shell_warning
 
 
 class TestRemoveWarning:

@@ -72,6 +72,7 @@ class TestGetLiteral:
     def test_classvar_wrapping_te_literal(self, values, expected):
         """get_literal with ClassVar[typing_extensions.Literal] should unwrap and return."""
         from typing import ClassVar
+
         from typing_extensions import Literal
         result = get_literal(ClassVar[Literal.__getitem__(values)])
         assert result == expected
@@ -106,6 +107,7 @@ class TestGetLiteral:
     def test_annotated_classvar_nesting(self):
         """get_literal with Annotated[ClassVar[Literal]] should unwrap multiple layers."""
         from typing import ClassVar
+
         from typing_extensions import Annotated, Literal
         result = get_literal(Annotated[ClassVar[Literal['deep']], 'meta'])
         assert result == ('deep',)
@@ -114,6 +116,7 @@ class TestGetLiteral:
     def test_annotated_final_nesting(self):
         """get_literal with Annotated[Final[Literal]] should unwrap multiple layers."""
         from typing import Final
+
         from typing_extensions import Annotated, Literal
         result = get_literal(Annotated[Final[Literal[99]], 'meta', 'extra'])
         assert result == (99,)
@@ -143,6 +146,7 @@ class TestGetLiteral:
         from typing import Final
         result = get_literal(Final[int])
         assert result is None
+
 
 class TestParseLiteralString:
     """Tests for parse_literal_string function."""

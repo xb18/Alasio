@@ -1,6 +1,7 @@
+import pytest
 import trio
 import trio.testing
-import pytest
+
 from alasio.backend.reactive.background import BackgroundTask
 
 

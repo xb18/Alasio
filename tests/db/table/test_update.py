@@ -2,7 +2,8 @@
 Test UPDATE operations: update_row with various configurations
 """
 import pytest
-from conftest import User, Product
+from conftest import Product, User
+
 from alasio.db.table import AlasioTableError
 
 

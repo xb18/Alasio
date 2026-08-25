@@ -12,7 +12,6 @@ import pytest
 
 from alasio.ext.cache.cache import cached_property
 
-
 # =============================================================================
 # Helper: count __get__ calls by wrapping the cached_property descriptor
 # =============================================================================

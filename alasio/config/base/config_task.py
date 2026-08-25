@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from msgspec import NODEFAULT
 
@@ -9,7 +9,6 @@ from alasio.base.pretty import dict2kv
 from alasio.base.servertime import nearest_future, random_time
 from alasio.base.timer import getnow
 from alasio.config.base.config_access import AlasioConfigBaseAccess
-from alasio.config.entry.model import TaskItem
 from alasio.config.table.config import AlasioConfigTable
 from alasio.logger import logger
 

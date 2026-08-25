@@ -12,7 +12,6 @@ import pytest
 
 from alasio.ext.algorithm.lz77 import match_run
 
-
 # ==============================================================================
 # Helpers
 # ==============================================================================
@@ -28,20 +27,20 @@ class TestBasicRunDetection:
     """Run-finding with default ``min_length=1, max_length=0``."""
 
     @pytest.mark.parametrize("data, index, expected", [
-        (_mv(b"aaaab"),  0, (97, 4)),   # run in middle of data
+        (_mv(b"aaaab"), 0, (97, 4)),   # run in middle of data
         (_mv(b"bbbaaa"), 3, (97, 3)),   # non-zero start index
         (_mv(b"aaaaaa"), 2, (97, 4)),   # start inside a run
-        (_mv(b"ab"),     1, (98, 1)),   # last byte alone
-        (_mv(b"xxxx"),   0, (120, 4)),  # entire data is one run
+        (_mv(b"ab"), 1, (98, 1)),   # last byte alone
+        (_mv(b"xxxx"), 0, (120, 4)),  # entire data is one run
         (_mv(b"aaabaaa"), 0, (97, 3)),  # stops at first differing byte
-        (_mv(b"z"),      0, (122, 1)),  # single element
-        (_mv(b"zz"),     0, (122, 2)),  # two identical bytes
-        (_mv(b"zx"),     0, (122, 1)),  # two different bytes
-        (_mv(b"abbbb"),  1, (98, 4)),   # run extends to end
-        (_mv(b"abc"),    0, (97, 1)),   # no run, length 1
+        (_mv(b"z"), 0, (122, 1)),  # single element
+        (_mv(b"zz"), 0, (122, 2)),  # two identical bytes
+        (_mv(b"zx"), 0, (122, 1)),  # two different bytes
+        (_mv(b"abbbb"), 1, (98, 4)),   # run extends to end
+        (_mv(b"abc"), 0, (97, 1)),   # no run, length 1
         (_mv(b"abcdef"), 5, (102, 1)),  # last element
-        (_mv(b"abcc"),   2, (99, 2)),   # second-to-last same as last
-        (_mv(b"abcx"),   2, (99, 1)),   # second-to-last different from last
+        (_mv(b"abcc"), 2, (99, 2)),   # second-to-last same as last
+        (_mv(b"abcx"), 2, (99, 1)),   # second-to-last different from last
     ])
     def test_run(self, data, index, expected):
         """Parametrized run detection with default parameters."""
@@ -82,15 +81,15 @@ class TestMinLength:
     """Behaviour of the ``min_length`` parameter."""
 
     @pytest.mark.parametrize("data, index, min_length, expected", [
-        (_mv(b"abc"),  0, 1,  (97, 1)),  # default-equivalent
-        (_mv(b"aaaa"), 0, 2,  (97, 4)),  # actual run > min
-        (_mv(b"aabc"), 0, 2,  (97, 2)),  # actual run == min
-        (_mv(b"abc"),  0, 5,  (97, 0)),  # actual run < min
-        (_mv(b"ab"),   0, 1,  (97, 1)),  # min=1 on a short run
-        (_mv(b"ab"),   1, 10, (98, 0)),  # min larger than remaining data
-        (_mv(b"abc"),  0, 0,  (97, 1)),  # min=0
-        (_mv(b"ab"),   0, 0,  (97, 1)),  # min=0 on run of 1
-        (_mv(b"zzzz"), 0, 2,  (122, 4)), # entire run with min satisfied
+        (_mv(b"abc"), 0, 1, (97, 1)),  # default-equivalent
+        (_mv(b"aaaa"), 0, 2, (97, 4)),  # actual run > min
+        (_mv(b"aabc"), 0, 2, (97, 2)),  # actual run == min
+        (_mv(b"abc"), 0, 5, (97, 0)),  # actual run < min
+        (_mv(b"ab"), 0, 1, (97, 1)),  # min=1 on a short run
+        (_mv(b"ab"), 1, 10, (98, 0)),  # min larger than remaining data
+        (_mv(b"abc"), 0, 0, (97, 1)),  # min=0
+        (_mv(b"ab"), 0, 0, (97, 1)),  # min=0 on run of 1
+        (_mv(b"zzzz"), 0, 2, (122, 4)),  # entire run with min satisfied
     ])
     def test_min_length(self, data, index, min_length, expected):
         """Parametrized min_length scenarios."""
@@ -111,17 +110,17 @@ class TestMaxLength:
         (_mv(b"aaaaab"), 0, 0, (97, 5)),
 
         # Basic capping
-        (_mv(b"aaaaa"),  0, 3, (97, 3)),
-        (_mv(b"aaaab"),  0, 3, (97, 3)),  # max equals actual run
-        (_mv(b"aab"),    0, 10, (97, 2)), # max larger than actual run
+        (_mv(b"aaaaa"), 0, 3, (97, 3)),
+        (_mv(b"aaaab"), 0, 3, (97, 3)),  # max equals actual run
+        (_mv(b"aab"), 0, 10, (97, 2)),  # max larger than actual run
 
         # Boundary: max_length=1 (was a bug — now fixed)
-        (_mv(b"aaaa"),   0, 1, (97, 1)),
-        (_mv(b"a"),      0, 1, (97, 1)),
-        (_mv(b"ab"),     0, 1, (97, 1)),
+        (_mv(b"aaaa"), 0, 1, (97, 1)),
+        (_mv(b"a"), 0, 1, (97, 1)),
+        (_mv(b"ab"), 0, 1, (97, 1)),
 
         # Stops early before differing byte
-        (_mv(b"aaab"),   0, 2, (97, 2)),
+        (_mv(b"aaab"), 0, 2, (97, 2)),
 
         # Large data capping
         (_mv(b"a" * 10000), 0, 50, (97, 50)),
@@ -142,18 +141,18 @@ class TestCombinedMinMaxLength:
 
     @pytest.mark.parametrize("data, index, min_length, max_length, expected", [
         # Both within range
-        (_mv(b"aaaaa"),  0, 2, 10, (97, 5)),  # actual between min and max
-        (_mv(b"aaaaaa"), 0, 3, 3,  (97, 3)),  # min == max
+        (_mv(b"aaaaa"), 0, 2, 10, (97, 5)),  # actual between min and max
+        (_mv(b"aaaaaa"), 0, 3, 3, (97, 3)),  # min == max
 
         # Run shorter than min → length 0
-        (_mv(b"abc"),    0, 5, 10, (97, 0)),  # run < min < max
-        (_mv(b"abc"),    0, 5, 3,  (97, 0)),  # min > max, match_len < min
+        (_mv(b"abc"), 0, 5, 10, (97, 0)),  # run < min < max
+        (_mv(b"abc"), 0, 5, 3, (97, 0)),  # min > max, match_len < min
 
         # Run capped by max
         (_mv(b"aaaaaaa"), 0, 2, 4, (97, 4)),  # min < max < actual
 
         # Actual run between min and max
-        (_mv(b"aaaa"),   0, 2, 10, (97, 4)),  # min < actual < max
+        (_mv(b"aaaa"), 0, 2, 10, (97, 4)),  # min < actual < max
     ])
     def test_combined(self, data, index, min_length, max_length, expected):
         """Parametrized combined min_length + max_length scenarios."""
@@ -195,9 +194,9 @@ class TestMemoryviewInput:
     """Correct handling of different memoryview sources."""
 
     @pytest.mark.parametrize("data, expected", [
-        (_mv(b"aaa"),              (97, 3)),
-        (_mv(bytearray(b"bbb")),   (98, 3)),
-        (_mv(b"cccddd")[3:],       (100, 3)),
+        (_mv(b"aaa"), (97, 3)),
+        (_mv(bytearray(b"bbb")), (98, 3)),
+        (_mv(b"cccddd")[3:], (100, 3)),
     ])
     def test_input_types(self, data, expected):
         """memoryview from bytes, bytearray, and sliced."""
@@ -214,8 +213,8 @@ class TestIndexError:
 
     @pytest.mark.parametrize("data, index", [
         # Empty data — any index is out of range
-        (_mv(b""),  0),
-        (_mv(b""),  1),
+        (_mv(b""), 0),
+        (_mv(b""), 1),
         (_mv(b""), -1),
 
         # Positive index beyond the last element
@@ -245,7 +244,7 @@ class TestIndexError:
         (_mv(b"abc"), -1),
         (_mv(b"abc"), -2),
         (_mv(b"abc"), -3),
-        (_mv(b"z"),   -1),
+        (_mv(b"z"), -1),
         (_mv(b"abcd"), -4),
     ])
     def test_negative_index_in_bounds(self, data, index):

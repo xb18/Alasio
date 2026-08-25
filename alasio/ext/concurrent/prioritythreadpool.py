@@ -5,13 +5,7 @@ from typing import Callable, TypeVar
 
 from typing_extensions import ParamSpec
 
-from alasio.ext.concurrent.threadpool import (
-    Error,
-    Job,
-    JobKill,
-    WorkerThread,
-    remove_tb_frames,
-)
+from alasio.ext.concurrent.threadpool import Error, Job, JobKill, WorkerThread, remove_tb_frames
 
 ParamP = ParamSpec("ParamP")
 ResultT = TypeVar("ResultT")

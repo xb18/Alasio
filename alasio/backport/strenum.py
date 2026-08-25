@@ -9,9 +9,7 @@ if TYPE_CHECKING:
 if sys.version_info >= (3, 12):
     from enum import EnumMeta, StrEnum
 else:
-    from enum import Enum
-    from enum import EnumMeta as _EnumMeta
-
+    from enum import Enum, EnumMeta as _EnumMeta
 
     class EnumMeta(_EnumMeta):
         # __contains__ was updated in 3.12 to no longer raise TypeError
@@ -26,7 +24,6 @@ else:
             if isinstance(value, str):
                 return value in cls._value2member_map_
             return False
-
 
     # https://github.com/python/cpython/blob/main/Lib/enum.py
     class StrEnum(str, Enum, metaclass=EnumMeta):

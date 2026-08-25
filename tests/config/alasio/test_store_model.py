@@ -8,15 +8,10 @@ import typing_extensions as e
 
 from alasio.base.servertime import ServerTime
 from alasio.config.alasio.store_model import (
-    DashboardAmount,
-    DashboardDynamicTotal,
-    DashboardRemain,
-    DashboardTotal,
-    cap_value,
+    DashboardAmount, DashboardDynamicTotal, DashboardRemain, DashboardTotal, cap_value
 )
 from alasio.config.const import DataInconsistent
 from alasio.logger import logger
-
 
 # ---- Tests: cap_value ----
 
