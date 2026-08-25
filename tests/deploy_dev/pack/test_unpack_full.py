@@ -47,8 +47,9 @@ class TestUnpack:
         job.unpack()
         # real files are not applied yet
         assert not os.path.exists(env.PROJECT_ROOT / 'backend/main.py')
-        # index pack is written in unpack()
-        assert os.path.exists(env.PROJECT_ROOT / '.pack/index.pack')
+        # the index pack is prepared to the workspace, not applied yet
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/index.pack')
+        assert os.path.exists(env.PROJECT_ROOT / f'.pack/workspace/{JobBase.NEW_INDEX}')
         # the workspace has the job file and tmp files
         assert os.listdir(env.PROJECT_ROOT / '.pack/workspace')
 
@@ -58,16 +59,22 @@ class TestUnpack:
         assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace/job.pack')
 
     def test_index_pack_written(self, app_folder):
-        """The front part of the full pack is written to .pack/index.pack."""
+        """The front part of the full pack is prepared to the workspace
+        and applied to .pack/index.pack in replace()."""
         job = UnpackJob(WEBSITE_FULL_PACK)
         job.write()
         job.unpack()
-        data = file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack')
+        tmp = env.PROJECT_ROOT / f'.pack/workspace/{JobBase.NEW_INDEX}'
+        data = file_read_bytes(tmp)
         assert data == WEBSITE_INDEX_PACK
         # it must be a valid index pack
         decoder = PackDecodeBase(data)
         decoder.validate_index()
         assert decoder.version == COMMIT
+        # the real index pack is not touched until replace()
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/index.pack')
+        job.replace()
+        assert file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack') == WEBSITE_INDEX_PACK
 
     def test_pending_records(self, app_folder):
         """unpack() fills self.pending with PendingFile records."""
@@ -79,7 +86,17 @@ class TestUnpack:
         assert all(isinstance(item, PendingFile) for item in job.pending)
         # every fileinfo record is in pending, refinfo is not unpacked
         # + 2 for the D marker and the packed commit history
-        assert len(job.pending) == len(WEBSITE_FILES) + 2
+        # + 1 for the index pack, prepared like every other record
+        assert len(job.pending) == len(WEBSITE_FILES) + 3
+        # the index pack record is prepared to the workspace, replace()
+        # applies it to .pack/index.pack
+        index = [
+            item for item in job.pending
+            if item.info.path == '.pack/index.pack'
+        ]
+        assert len(index) == 1
+        assert index[0].info.edit == 0
+        assert index[0].tmp
         # deleted marker record, its target is removed in replace()
         deleted = [
             item for item in job.pending
@@ -104,6 +121,46 @@ class TestUnpack:
         # tmp file name is built from the record and the index
         info = normal[0].info
         assert os.path.exists(normal[0].tmp)
+
+
+class TestUnpackIndex:
+    """unpack(): reuse of a leftover workspace index pack."""
+
+    def test_reuse_valid_new_index(self, app_folder, monkeypatch):
+        """A valid leftover new_index.tmp is reused without a rewrite."""
+        # the workspace tmp left by an interrupted run, already the
+        # index pack of this version
+        tmp = env.PROJECT_ROOT / f'.pack/workspace/{JobBase.NEW_INDEX}'
+        os.makedirs(tmp.uppath(), exist_ok=True)
+        with open(tmp, 'wb') as f:
+            f.write(WEBSITE_INDEX_PACK)
+        import alasio.deploy.pack.job_unpack as module
+        writes = []
+        original = module.file_write
+
+        def _counting(file, data):
+            writes.append(file)
+            return original(file, data)
+        monkeypatch.setattr(module, 'file_write', _counting)
+        job = UnpackJob(WEBSITE_FULL_PACK)
+        job.write()
+        job.unpack()
+        # the valid leftover tmp is reused: the index pack is not
+        # written again (job.pack and the other tmp files still are)
+        assert tmp not in writes
+        assert file_read_bytes(tmp) == WEBSITE_INDEX_PACK
+
+    def test_broken_new_index_rewritten(self, app_folder):
+        """A broken leftover new_index.tmp is rewritten."""
+        tmp = env.PROJECT_ROOT / f'.pack/workspace/{JobBase.NEW_INDEX}'
+        os.makedirs(tmp.uppath(), exist_ok=True)
+        with open(tmp, 'wb') as f:
+            f.write(b'garbage')
+        job = UnpackJob(WEBSITE_FULL_PACK)
+        job.write()
+        job.unpack()
+        # the broken tmp fails the content check and is overwritten
+        assert file_read_bytes(tmp) == WEBSITE_INDEX_PACK
 
 
 class TestUnpackReplace:

@@ -1,7 +1,8 @@
 from alasio.deploy.pack.decode_base import PackDecodeBase
 from alasio.deploy.pack.job_base import JobBase, PendingFile
+from alasio.deploy.pack.pack_model import IdxInfo
 from alasio.ext import env
-from alasio.ext.path.atomic import atomic_write, file_write
+from alasio.ext.path.atomic import file_write
 from alasio.logger import logger
 
 
@@ -25,11 +26,11 @@ class UnpackJob(JobBase):
     All files unpack into env.PROJECT_ROOT, the pack structure (.pack/)
     lives inside it. The unpack flow follows the draft in PackEncodeBase:
 
-    1. unpack() writes the index section to .pack/index.pack and
-       decompresses all files to .pack/workspace/{size}_{sha1}_{index}.tmp,
-       real files are untouched. Files that exist and pass the size +
-       sha1 check are skipped, leftover tmp files that pass the check
-       are reused.
+    1. unpack() writes the index section to .pack/workspace/new_index.tmp
+       and decompresses all files to
+       .pack/workspace/{size}_{sha1}_{index}.tmp, real files are
+       untouched. Files that exist and pass the size + sha1 check are
+       skipped, leftover tmp files that pass the check are reused.
     2. replace() moves every tmp file to the target path atomically and
        removes the deleted markers. Real file operations only start
        after every tmp file is ready, so an interruption never leaves a
@@ -103,19 +104,28 @@ class UnpackJob(JobBase):
         """
         Prepare all files in the workspace, real files are untouched.
 
-        Writes the index section to .pack/index.pack and decompresses
-        every file to .pack/workspace/{size}_{sha1}_{index}.tmp,
-        filling self.pending with the changes to apply in replace().
+        Writes the index section to .pack/workspace/new_index.tmp and
+        decompresses every file to
+        .pack/workspace/{size}_{sha1}_{index}.tmp, filling self.pending
+        with the changes to apply in replace(). The index pack is
+        prepared to the workspace like every other record, replace()
+        applies it to .pack/index.pack together with the other files.
         A target file whose content matches the record only after
         converting its EOL is written to the tmp file with the
         converted content, no decompression is needed.
         """
         decoder = PackDecodeBase(self._data)
         decoder.validate()
-        # the front part of a full pack is an index pack
-        atomic_write(env.PROJECT_ROOT.joinpath(self.INDEX_PACK), decoder.extract_index_pack())
 
-        pending = []
+        # unpack index
+        tmp = self.workspace.joinpath(self.NEW_INDEX)
+        index_pack = decoder.extract_index_pack()
+        current = self._read_current(tmp)
+        if not current.exist or current.data != index_pack:
+            file_write(tmp, index_pack)
+        pending = [PendingFile(info=IdxInfo(path=self.INDEX_PACK), tmp=tmp)]
+
+        # unpack files
         for index, (path, info) in enumerate(decoder.fileinfo.items()):
             target = env.PROJECT_ROOT.joinpath(path)
             if info.edit == 2:
