@@ -18,7 +18,7 @@
   });
 </script>
 
-<div class="bg-background text-foreground flex h-screen flex-col items-center justify-center">
+<div class="bg-background text-foreground flex h-full flex-col items-center justify-center">
   <h1 class="mb-8 text-6xl font-bold">Alasio</h1>
   <div class="text-muted-foreground mb-12 text-xl">Starting backend...</div>
 

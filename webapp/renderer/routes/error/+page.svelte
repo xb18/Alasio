@@ -15,7 +15,7 @@
   });
 </script>
 
-<div class="bg-background text-foreground flex h-screen items-center justify-center">
+<div class="bg-background text-foreground flex h-full items-center justify-center">
   <div class="bg-card w-[600px] rounded-xl p-12 shadow-lg backdrop-blur-lg">
     <h1 class="text-destructive mb-6 text-4xl font-bold">Error</h1>
 

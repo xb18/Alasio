@@ -49,9 +49,16 @@
 </script>
 
 <!-- The embedded web app (/app) provides its own header, so the title bar
-     becomes a floating overlay (drag strip + window controls) there. -->
-<TitleBar floating={page.route.id === "/app"} />
-{@render children()}
+     becomes a floating overlay (drag strip + window controls) there.
+     The outer flex column reserves the title bar height in normal flow, so
+     page containers sized with h-full never overflow the viewport (which
+     would otherwise add scrollbars to pages that fit on one screen). -->
+<div class="flex h-screen flex-col">
+  <TitleBar floating={page.route.id === "/app"} />
+  <main class="min-h-0 flex-1">
+    {@render children()}
+  </main>
+</div>
 
 <!-- Dev-only launcher in the bottom-right corner. The module is only loaded
      (and only bundled) in dev builds; see the dynamic import above. -->
