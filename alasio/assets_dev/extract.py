@@ -2,10 +2,10 @@ import re
 
 from alasio.assets_dev.parse import AssetAll, AssetImage, AssetModule, AssetMultilang
 from alasio.base.image.imfile import image_fixup
+from alasio.codegen.python import CodeGen
 from alasio.config.const import Const
 from alasio.ext import env
 from alasio.ext.cache import cached_property
-from alasio.codegen.python import CodeGen
 from alasio.ext.file.watchdog import PathEvent, Watchdog
 from alasio.ext.path import PathStr
 from alasio.ext.path.atomic import atomic_remove
@@ -110,13 +110,9 @@ class AssetsExtractor:
                     image.path = image.path
                 asset.populate_attr_from_first_frame()
 
-    def gen_asset(self, gen, asset):
+    def gen_asset(self, gen: "CodeGen", asset: "AssetMultilang"):
         """
         Generate code for an asset
-
-        Args:
-            gen (CodeGen):
-            asset (AssetMultilang):
         """
         with gen.Object(name=asset.asset, cls='ButtonWrapper'):
             gen.Var(name='name', value=asset.asset)
@@ -156,13 +152,9 @@ class AssetsExtractor:
                     # leaving None
                     gen.Var(name=lang, value=None)
 
-    def gen_module(self, gen, module):
+    def gen_module(self, gen: "CodeGen", module: "AssetModule"):
         """
         Generate code for a module
-
-        Args:
-            gen (CodeGen):
-            module (AssetModule):
         """
         # header
         gen.FromImport('module.base.button').Import('Button, ButtonWrapper')
@@ -282,10 +274,9 @@ class AssetsExtractor:
         path = path.replace('\\', '/')
         return path
 
-    def generate_on_change(self, events, gitadd=None):
+    def generate_on_change(self, events: "list[PathEvent]", gitadd=None):
         """
         Args:
-            events (list[PathEvent]):
             gitadd (GitAdd): Input a GitAdd object to track the generated files
         """
         self.patch_const()
@@ -306,11 +297,8 @@ class AssetsExtractor:
 
         self.generate(modules, gitadd=gitadd)
 
-    def image_fixup(self, event):
+    def image_fixup(self, event: "PathEvent"):
         """
-        Args:
-            event (PathEvent):
-
         Returns:
             bool: If file changed
         """

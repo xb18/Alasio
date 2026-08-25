@@ -15,14 +15,13 @@ if TYPE_CHECKING:
 
 
 class BaseTopic(AsyncReactiveCallback, BaseMixin, metaclass=SingletonNamed):
-    def __init__(self, conn_id, server):
+    def __init__(self, conn_id, server: "WebsocketTopicServer"):
         """
         Create a data topic, that supports subscribe/unsubscribe
         and sends data changes once subscribed
 
         Args:
             conn_id (str):
-            server (WebsocketTopicServer):
         """
         self.conn_id = conn_id
         self.server = server

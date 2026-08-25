@@ -17,13 +17,9 @@ class AssetsExtractorALAS(AssetsExtractor):
         # Alas don't have populate
         return
 
-    def gen_asset(self, gen, asset):
+    def gen_asset(self, gen: "CodeGen", asset: "AssetMultilang"):
         """
         Generate code for an asset
-
-        Args:
-            gen (CodeGen):
-            asset (AssetMultilang):
         """
         if asset.asset.startswith('TEMPLATE_'):
             file = {}
@@ -59,13 +55,9 @@ class AssetsExtractorALAS(AssetsExtractor):
                 gen.Var(name='button', value=button)
                 gen.Var(name='file', value=file)
 
-    def gen_module(self, gen, module):
+    def gen_module(self, gen: "CodeGen", module: "AssetModule"):
         """
         Generate code for a module
-
-        Args:
-            gen (CodeGen):
-            module (AssetModule):
         """
         # header
         gen.FromImport('module.base.button').Import('Button')
@@ -80,13 +72,13 @@ class AssetsExtractorALAS(AssetsExtractor):
         for asset in module:
             self.gen_asset(gen, asset)
 
-    def get_output_file(self, module_path):
+    def get_output_file(self, module_path) -> "PathStr":
         """
         Args:
             module_path (str): example: "combat", "combat/support"
 
         Returns:
-            PathStr: output file of module
+            output file of module
         """
         # module/combat/assets.py
         module, _, _ = module_path.partition('/')

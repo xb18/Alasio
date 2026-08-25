@@ -25,13 +25,9 @@ class AssetsExtractorSRC(AssetsExtractor):
                     image.path = './' + image.path
                 asset.populate_attr_from_first_frame()
 
-    def gen_module(self, gen, module):
+    def gen_module(self, gen: "CodeGen", module: "AssetModule"):
         """
         Generate code for a module
-
-        Args:
-            gen (CodeGen):
-            module (AssetModule):
         """
         # header
         gen.FromImport('module.base.button').Import('Button, ButtonWrapper')

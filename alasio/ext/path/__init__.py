@@ -1,1 +1,1 @@
-from .pathstr import PathStr
+from .pathstr import PathStr as PathStr
