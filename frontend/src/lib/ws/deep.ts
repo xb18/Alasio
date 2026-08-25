@@ -60,6 +60,12 @@ export function deepDel(obj: any, path: Key[]): void {
     current = next;
   }
 
-  // Delete the target property from its parent.
-  delete current[lastKey];
+  if (typeof lastKey === "number" && Array.isArray(current)) {
+    // Deleting an array index compacts the array (splice); the `delete`
+    // operator would leave an undefined hole and keep the length.
+    current.splice(lastKey, 1);
+  } else {
+    // Delete the target property from its parent.
+    delete current[lastKey];
+  }
 }

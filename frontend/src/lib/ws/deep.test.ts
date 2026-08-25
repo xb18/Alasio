@@ -64,15 +64,21 @@ describe("TestDeepDel", () => {
     expect(obj).toEqual({ a: { c: 2 } });
   });
 
-  it("deletes an array element by index (delete semantics, leaving a hole)", () => {
+  it("deletes an array element by index, compacting the array", () => {
+    // Regression test for doc §8.5.2: array index deletion used to apply
+    // the `delete` operator, keeping the length and leaving an undefined
+    // hole. It now compacts the array with splice.
     const obj = { list: ["x", "y", "z"] };
     deepDel(obj, ["list", 1]);
-    // deepDel uses the `delete` operator: the element is removed, the
-    // array keeps its length with a hole at the deleted index.
-    expect(obj.list).toHaveLength(3);
-    expect(obj.list[1]).toBeUndefined();
-    expect(obj.list[0]).toBe("x");
-    expect(obj.list[2]).toBe("z");
+    expect(obj.list).toEqual(["x", "z"]);
+  });
+
+  it("deletes a numeric property from a plain object without compacting", () => {
+    // Only real arrays are compacted: a numeric key on a plain object
+    // keeps the `delete` semantics.
+    const obj: Record<string, any> = { map: { 0: "a", 1: "b" } };
+    deepDel(obj, ["map", 1]);
+    expect(obj.map).toEqual({ 0: "a" });
   });
 
   it("is a no-op when the leaf path does not exist", () => {
