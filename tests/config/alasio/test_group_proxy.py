@@ -8,15 +8,16 @@ import pytest
 import typing_extensions as e
 from msgspec import Struct
 
-from ExampleMod.module.config.const import entry
 from alasio.base.timer import getnow
 from alasio.config.alasio.group_proxy import GroupProxy, batch_set
-from alasio.config.alasio.store_model import DashboardAmount, DashboardBase
+from alasio.config.alasio.store_model import DashboardAmount
 from alasio.config.base import AlasioConfigBase
 from alasio.config.entry.mod import Mod
+from alasio.config.entry.utils import validate_task_name
 from alasio.db.conn import SQLITE_POOL
 from alasio.ext.cache import cached_property as alasio_cached_property
 from alasio.logger import logger
+from ExampleMod.module.config.const import entry
 
 
 # Define a custom decorator with wraps
@@ -166,6 +167,23 @@ class MockMod:
                 }
             })
         }
+
+    def iter_task_groups(self, task):
+        """Yield task groups, mirroring ModScheduler.iter_task_groups behavior."""
+        index = self.task_index_data()
+        global_bind = index.get('_global_bind', None)
+        if global_bind is not None:
+            for group, group_ref in global_bind.group.items():
+                yield group, group_ref
+        if task:
+            if not validate_task_name(task):
+                raise KeyError(f'Task name format invalid: "{task}"')
+            try:
+                task_ref = index[task]
+            except KeyError:
+                raise KeyError(f'No such task "{task}"') from None
+            for group, group_ref in task_ref.group.items():
+                yield group, group_ref
 
 
 @pytest.fixture(scope='module')
@@ -517,6 +535,23 @@ class MockDashboardMod:
             })
         }
 
+    def iter_task_groups(self, task):
+        """Yield task groups, mirroring ModScheduler.iter_task_groups behavior."""
+        index = self.task_index_data()
+        global_bind = index.get('_global_bind', None)
+        if global_bind is not None:
+            for group, group_ref in global_bind.group.items():
+                yield group, group_ref
+        if task:
+            if not validate_task_name(task):
+                raise KeyError(f'Task name format invalid: "{task}"')
+            try:
+                task_ref = index[task]
+            except KeyError:
+                raise KeyError(f'No such task "{task}"') from None
+            for group, group_ref in task_ref.group.items():
+                yield group, group_ref
+
 
 class TestDashboardExpire:
     """Test is_expired() and update() through GroupProxy"""
@@ -531,6 +566,7 @@ class TestDashboardExpire:
             root = '.'
             path_config = '.'
             path_assets = '.'
+
             @staticmethod
             def alasio():
                 return Entry
@@ -560,13 +596,13 @@ class TestDashboardExpire:
 
     def test_is_expired_expired(self, config):
         """
-        is_expired() returns True when Time is after the next update.
-        Time set to well in the future (now + 2 days) is after the next 00:00.
+        is_expired() returns True when Time is before the last server update.
+        Time set to well in the past (now - 2 days) is before the last 00:00.
         """
         obj = config.DashboardExpireTestGroup._obj
         now = getnow()
-        future = now + d.timedelta(days=2)
-        obj.Time = future
+        past = now - d.timedelta(days=2)
+        obj.Time = past
         assert config.DashboardExpireTestGroup.is_expired()
 
     def test_update_resets_when_expired(self, config):
@@ -576,9 +612,9 @@ class TestDashboardExpire:
         """
         obj = config.DashboardExpireTestGroup._obj
         now = getnow()
-        future = now + d.timedelta(days=2)
+        past = now - d.timedelta(days=2)
         obj.Value = 50
-        obj.Time = future
+        obj.Time = past
         config.DashboardExpireTestGroup.update()
         assert obj.Value == 0
         # Total is not relevant for DashboardAmount

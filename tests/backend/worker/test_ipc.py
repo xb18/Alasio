@@ -84,7 +84,7 @@ class TestWorkerIPC:
         state.wait_running(timeout=WORKER_STARTUP_TIMEOUT)
 
         # 初始状态应该是 running
-        assert state.status == 'running'
+        assert state.state == 'running'
 
         # worker_test_scheduler 逻辑:
         # n=0: running
@@ -99,16 +99,16 @@ class TestWorkerIPC:
         for _ in AssertTimeout(WORKER_STATE_TIMEOUT):
             with _:
                 state.send_test_continue()
-                assert state.status == 'scheduler-waiting', (f"Worker status did not change to scheduler-waiting. "
-                                                             f"Current: {state.status}")
+                assert state.state == 'scheduler-waiting', (f"Worker status did not change to scheduler-waiting. "
+                                                             f"Current: {state.state}")
 
         # 推进 n=2 -> n=3 (running)
         # 等待状态变为 running
         for _ in AssertTimeout(WORKER_STATE_TIMEOUT):
             with _:
                 state.send_test_continue()
-                assert state.status == 'running', (f"Worker status did not change back to running. Current: "
-                                                   f"{state.status}")
+                assert state.state == 'running', (f"Worker status did not change back to running. Current: "
+                                                   f"{state.state}")
 
         # 清理
         manager.worker_kill('test_status')

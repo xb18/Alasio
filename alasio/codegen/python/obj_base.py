@@ -187,7 +187,7 @@ class Linebreak(CodeObject):
     """
 
     def generate(self):
-        return
+        yield from ()
 
 
 class GatherItems:

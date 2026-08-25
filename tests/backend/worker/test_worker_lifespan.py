@@ -13,7 +13,6 @@ from alasio.backend.worker.manager import WorkerManager
 from alasio.testing.timeout import AssertTimeout
 from tests.backend.worker.const import *
 
-
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -94,7 +93,7 @@ class TestWorkerStart:
 
         state.wait_running(timeout=WORKER_STARTUP_TIMEOUT)
 
-        assert state.status == 'running'
+        assert state.state == 'running'
         assert state.process is not None
         assert state.conn is not None
         assert state.process.is_alive()
@@ -144,7 +143,7 @@ class TestWorkerStart:
                 # 快速推进到完成
                 if state.conn:
                     state.send_test_continue()
-                assert state.status == 'idle'
+                assert state.state == 'idle'
 
         # Restart
         success, msg = manager.worker_start('WorkerTestInfinite', 'test_restart')
@@ -153,7 +152,7 @@ class TestWorkerStart:
 
         for _ in AssertTimeout(WORKER_STARTUP_TIMEOUT):
             with _:
-                assert state.status == 'running'
+                assert state.state == 'running'
 
 
 # ============================================================================
@@ -177,7 +176,7 @@ class TestWorkerState:
                 # 快速推进 worker 执行
                 if state.conn:
                     state.send_test_continue()
-                assert state.status == 'idle'
+                assert state.state == 'idle'
                 assert not state.process or not state.process.is_alive()
 
         # 验证资源已释放
@@ -208,7 +207,7 @@ class TestWorkerState:
         # 等待进入错误状态
         for _ in AssertTimeout(2.0):
             with _:
-                assert state.status == 'error'
+                assert state.state == 'error'
                 assert not state.process or not state.process.is_alive()
 
 
@@ -230,7 +229,7 @@ class TestWorkerStop:
         # Request scheduler stop
         success, msg = manager.worker_scheduler_stop('test_sched_stop')
         assert success, f"Failed to request stop: {msg}"
-        assert state.status == 'scheduler-stopping'
+        assert state.state == 'scheduler-stopping'
 
         # 等待停止完成
         for _ in AssertTimeout(WORKER_STOP_TIMEOUT):
@@ -238,7 +237,7 @@ class TestWorkerStop:
                 # 快速推进 worker 响应停止请求
                 if state.conn:
                     state.send_test_continue()
-                assert state.status == 'idle'
+                assert state.state == 'idle'
                 assert not state.process or not state.process.is_alive()
 
     def test_scheduler_stop_respects_worker_state(self, manager):
@@ -251,7 +250,7 @@ class TestWorkerStop:
 
         # Request stop
         manager.worker_scheduler_stop('test_sched_resp')
-        assert state.status == 'scheduler-stopping'
+        assert state.state == 'scheduler-stopping'
 
         # 等待完成
         for _ in AssertTimeout(WORKER_STOP_TIMEOUT):
@@ -259,7 +258,7 @@ class TestWorkerStop:
                 # 快速推进
                 if state.conn:
                     state.send_test_continue()
-                assert state.status == 'idle'
+                assert state.state == 'idle'
 
     def test_worker_kill(self, manager):
         """测试 killing a worker"""
@@ -272,12 +271,12 @@ class TestWorkerStop:
         # Kill worker
         success, msg = manager.worker_kill('test_kill')
         assert success, f"Failed to kill worker: {msg}"
-        assert state.status == 'killing'
+        assert state.state == 'killing'
 
         # 等待清理
         for _ in AssertTimeout(WORKER_STOP_TIMEOUT):
             with _:
-                assert state.status in ['idle', 'error']
+                assert state.state in ['idle', 'error']
                 assert not state.process or not state.process.is_alive()
 
     def test_worker_force_kill(self, manager):
@@ -327,7 +326,7 @@ class TestWorkerStop:
                 # 快速推进到完成
                 if state.conn:
                     state.send_test_continue()
-                assert state.status == 'idle'
+                assert state.state == 'idle'
 
         # Try to stop idle worker
         success, msg = manager.worker_scheduler_stop('test_idle_stop')
@@ -348,7 +347,7 @@ class TestWorkerStop:
         # Request scheduler stop
         success1, _ = manager.worker_scheduler_stop('test_seq')
         assert success1
-        assert state.status == 'scheduler-stopping'
+        assert state.state == 'scheduler-stopping'
 
         # Try to request kill (should fail, already stopping)
         success2, msg = manager.worker_kill('test_seq')
@@ -388,7 +387,7 @@ class TestResourceManagement:
             with _:
                 for i in range(3):
                     state = manager.state.get(f'test_leak_{i}', None)
-                    assert not state or state.status == 'idle'
+                    assert not state or state.state == 'idle'
 
         # Check no process leak
         assert_worker_gone(list(manager.state.values()))
@@ -465,7 +464,7 @@ class TestResourceManagement:
 
                 for _ in AssertTimeout(WORKER_COMPLETION_TIMEOUT):
                     with _:
-                        assert state.status == 'idle'
+                        assert state.state == 'idle'
 
         # Verify no leaks
         assert len(manager.state) <= 1, "State leak after repeated cycles"

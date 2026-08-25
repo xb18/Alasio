@@ -5,6 +5,7 @@ import sys
 import threading
 from typing import List, Optional
 
+import alasio
 from alasio.testing.timeout import AssertTimeout
 
 
@@ -61,6 +62,15 @@ class ManagedProcess:
         python = sys.executable
         cmd = [python, self.script_path] + list(self.args)
 
+        # The child runs ``python <script>`` so only the script directory
+        # lands on sys.path; the project root is not importable unless the
+        # package is pip-installed. Inject the project root into PYTHONPATH
+        # so child processes can always ``import alasio``.
+        env = os.environ.copy()
+        project_root = os.path.dirname(os.path.dirname(alasio.__file__))
+        existing = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = project_root + (os.pathsep + existing if existing else "")
+
         if sys.platform == "win32":
             # Windows: 创建新的进程组
             self.process = subprocess.Popen(
@@ -70,7 +80,8 @@ class ManagedProcess:
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,  # 行缓冲
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                env=env
             )
         else:
             # Unix/Linux: 使用preexec_fn创建新的进程组
@@ -81,7 +92,8 @@ class ManagedProcess:
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,  # 行缓冲
-                preexec_fn=os.setpgrp
+                preexec_fn=os.setpgrp,
+                env=env
             )
 
     def _start_collector(self):

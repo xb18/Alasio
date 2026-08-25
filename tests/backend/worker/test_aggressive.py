@@ -4,6 +4,7 @@ WorkerManager 鲁棒性测试
 测试异常情况下的恢复能力
 """
 import time
+
 import pytest
 
 from alasio.backend.worker.manager import WorkerManager
@@ -41,11 +42,11 @@ class TestWorkerResilience:
         # Manager 的 _io_loop 应该会因为 pipe EOF 而触发 _handle_disconnect
         for _ in AssertTimeout(WORKER_STOP_TIMEOUT):
             with _:
-                if state.status == 'error':
+                if state.state == 'error':
                     break
                 time.sleep(0.1)
 
-        assert state.status == 'error'
+        assert state.state == 'error'
         assert not state.process or not state.process.is_alive()
 
     def test_close_worker_pipe_directly(self, manager):
@@ -62,7 +63,7 @@ class TestWorkerResilience:
         # Manager 应该检测到 pipe 关闭/错误，并清理 worker
         for _ in AssertTimeout(WORKER_STOP_TIMEOUT):
             with _:
-                assert state.status == 'error'
+                assert state.state == 'error'
 
         # 进程也应该被 manager 杀掉
         assert not state.process or not state.process.is_alive()

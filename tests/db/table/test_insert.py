@@ -2,7 +2,7 @@
 Test INSERT operations: insert_row with single and multiple rows
 """
 import pytest
-from conftest import User, Product
+from conftest import Product, User, UserTable
 
 
 def test_insert_single_row(user_table):
@@ -211,7 +211,6 @@ def test_insert_zero_values(user_table):
 
 def test_insert_in_new_table(temp_db):
     """Test insert in freshly created table"""
-    from conftest import UserTable, User
 
     table = UserTable(temp_db)
     # Don't call create_table manually - it should auto-create

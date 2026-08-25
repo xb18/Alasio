@@ -2,6 +2,8 @@
 Test basic table operations: create_table, drop_table, field_names, etc.
 """
 
+from conftest import User, UserTable
+
 from alasio.db.table import AlasioTable, row_has_pk
 
 
@@ -139,7 +141,6 @@ def test_cursor_lazy(user_table):
 
 def test_auto_create_table_on_execute(temp_db):
     """Test that table is auto-created when executing SQL"""
-    from conftest import UserTable, User
 
     # Create table instance without calling create_table
     table = UserTable(temp_db)
@@ -160,7 +161,6 @@ def test_table_with_memory_db(user_table_memory):
     assert user_table_memory.file == ':memory:'
 
     # Should be able to perform operations
-    from conftest import User
     user = User(id=0, name='Memory Test', age=30, email='memory@example.com')
     user_table_memory.insert_row(user)
 
@@ -171,7 +171,6 @@ def test_table_with_memory_db(user_table_memory):
 
 def test_row_has_pk(user_table):
     """Test _row_has_pk method"""
-    from conftest import User
 
     # User with valid PK
     user_with_pk = User(id=5, name='Test', age=25, email='test@example.com')
