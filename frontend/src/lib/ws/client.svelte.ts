@@ -279,16 +279,26 @@ export class WebsocketManager {
           if (keys.length === 0) {
             this.topics[topic] = value;
           } else {
-            if (this.topics[topic] === undefined) {
-              this.topics[topic] = {};
+            let topicData = this.topics[topic];
+            if (topicData === undefined || topicData === null || typeof topicData !== "object") {
+              // A path event implies the topic data is a container. Reset
+              // non-object data (null or scalar) before applying the path.
+              this.topics[topic] = typeof keys[0] === "number" ? [] : {};
+              // Re-read through the proxy: the assignment stores a new
+              // proxied container in the source, so mutating the raw object
+              // above would bypass reactivity.
+              topicData = this.topics[topic];
             }
             // Mutate in-place. Svelte 5's $state detects deep mutations.
-            deepSet(this.topics[topic], keys, value);
+            deepSet(topicData, keys, value);
           }
           break;
         case "del":
-          if (this.topics[topic] !== undefined && keys.length > 0) {
-            deepDel(this.topics[topic], keys);
+          if (keys.length > 0) {
+            const topicData = this.topics[topic];
+            if (topicData !== undefined && topicData !== null && typeof topicData === "object") {
+              deepDel(topicData, keys);
+            }
           }
           break;
       }

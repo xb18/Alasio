@@ -14,18 +14,25 @@ export function deepSet(obj: any, path: Key[], value: any): void {
   }
 
   let current = obj;
-  for (let i = 0; i < path.length - 1; i++) {
+  const lastIndex = path.length - 1;
+  const lastKey = path[lastIndex];
+  for (let i = 0; i < lastIndex; i++) {
     const key = path[i];
-
-    if (current[key] === undefined || typeof current[key] !== "object" || current[key] === null) {
-      const nextKey = path[i + 1];
+    const next = current[key];
+    if (next === undefined || next === null || typeof next !== "object") {
       // Create an array if the next key is a number, otherwise create an object.
-      current[key] = typeof nextKey === "number" ? [] : {};
+      // The container is written through the proxy (making it reactive) and
+      // then re-read: the proxy stores a proxied copy, so mutating `next`
+      // directly would bypass reactivity.
+      current[key] = typeof path[i + 1] === "number" ? [] : {};
+      current = current[key];
+    } else {
+      // `next` was read through the proxy, so it can be reused directly.
+      current = next;
     }
-    current = current[key];
   }
 
-  current[path[path.length - 1]] = value;
+  current[lastKey] = value;
 }
 
 /**
@@ -40,16 +47,19 @@ export function deepDel(obj: any, path: Key[]): void {
   }
 
   let current = obj;
+  const lastIndex = path.length - 1;
+  const lastKey = path[lastIndex];
   // Traverse to the parent of the target property.
-  for (let i = 0; i < path.length - 1; i++) {
+  for (let i = 0; i < lastIndex; i++) {
     const key = path[i];
+    const next = current[key];
     // If the path doesn't exist, there's nothing to delete.
-    if (current[key] === undefined || typeof current[key] !== "object" || current[key] === null) {
+    if (next === undefined || next === null || typeof next !== "object") {
       return;
     }
-    current = current[key];
+    current = next;
   }
 
   // Delete the target property from its parent.
-  delete current[path[path.length - 1]];
+  delete current[lastKey];
 }

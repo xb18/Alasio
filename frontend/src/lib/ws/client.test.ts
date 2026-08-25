@@ -395,10 +395,11 @@ describe("TestTopicDataEvents", () => {
     expect(client.topics).not.toHaveProperty("NoSuchTopic");
   });
 
-  it("drops path events when the topic data is null: deepSet throws and onMessage swallows it", () => {
-    // Known limitation pinned as current behavior (see doc §8.5.1): a
-    // root set to null makes every later path set/add silently fail —
-    // deepSet(null, ...) throws TypeError, onMessage catches and logs.
+  it("recovers from null topic data when a path event arrives", () => {
+    // Regression test for doc §8.5.1: a root set to null used to make
+    // every later path set/add silently fail — deepSet(null, ...) threw
+    // TypeError which onMessage caught and logged. Path events now reset
+    // non-object topic data to an empty container before applying.
     const client = new WebsocketManager();
     client.connect();
     FakeWebSocket.last!.serverOpen();
@@ -408,8 +409,36 @@ describe("TestTopicDataEvents", () => {
     expect(client.topics.ConnState).toBeNull();
 
     FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConnState", o: "set", k: ["lang"], v: "zh-CN" }));
+    expect(client.topics.ConnState).toEqual({ lang: "zh-CN" });
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("recovers from scalar topic data when a path event arrives", () => {
+    const client = new WebsocketManager();
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConnState", o: "set", k: [], v: 42 }));
+    expect(client.topics.ConnState).toBe(42);
+
+    FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConnState", o: "add", k: ["x"], v: 1 }));
+    expect(client.topics.ConnState).toEqual({ x: 1 });
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("ignores del path events when the topic data is not an object", () => {
+    const client = new WebsocketManager();
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConnState", o: "set", k: [], v: null }));
+    FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConnState", o: "del", k: ["a", "b"] }));
     expect(client.topics.ConnState).toBeNull();
-    expect(error).toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
     error.mockRestore();
   });
 });
