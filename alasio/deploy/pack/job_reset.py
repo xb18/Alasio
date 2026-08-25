@@ -5,7 +5,7 @@ from alasio.deploy.pack.job_base import JobBase, PendingFile
 from alasio.deploy.pack.pack_model import IdxInfo
 from alasio.ext import env
 from alasio.ext.cache import InstanceCacheOperation, cached_property
-from alasio.ext.path.atomic import atomic_read_bytes, atomic_write
+from alasio.ext.path.atomic import atomic_read_bytes, file_write
 from alasio.logger import logger
 
 
@@ -106,8 +106,12 @@ class ResetJob(JobBase):
         Write the job marker to the job file, marking a validation task
         in progress, so that a future run can resume from it if this
         run gets interrupted.
+
+        The job file lives in the workspace, a corrupted one is
+        detected by get_unfinished_job() on the next run, so a plain
+        write is enough.
         """
-        atomic_write(env.PROJECT_ROOT.joinpath(self.JOB_FILE), self.MARK)
+        file_write(env.PROJECT_ROOT.joinpath(self.JOB_FILE), self.MARK)
 
     @cached_property
     def _index_pack(self):
@@ -247,7 +251,7 @@ class ResetJob(JobBase):
                 tmp = self.workspace.joinpath(
                     f'{info.size}_{info.sha1}_{len(self.error)}.tmp')
                 if not self._matches(info, self._read_current(tmp)).match:
-                    atomic_write(tmp, current.data)
+                    file_write(tmp, current.data)
                 self.error.append(PendingFile(info=info, tmp=tmp, mode=info.mode_decoded))
                 continue
             if result.match_data:
@@ -256,7 +260,7 @@ class ResetJob(JobBase):
                 # the tmp name is built from the index of the record
                 # in self.error, matching the download() convention
                 tmp = self.workspace.joinpath(f'{info.size}_{info.sha1}_{len(self.error)}.tmp')
-                atomic_write(tmp, result.match_data)
+                file_write(tmp, result.match_data)
                 self.error.append(PendingFile(
                     info=info, tmp=tmp, mode=info.mode_decoded if info.mode == 1 else None))
                 continue
@@ -313,7 +317,7 @@ class ResetJob(JobBase):
                     f'Failed to download the index pack: checksum mismatch, '
                     f'expected {info.checksum}, got {decoder.index_checksum}'
                 )
-            atomic_write(tmp, data)
+            file_write(tmp, data)
         # set the decoder of the new index pack into the cache, the
         # next validation reads it without the file again
         InstanceCacheOperation.set(self, '_index_pack', decoder)
@@ -401,5 +405,5 @@ class ResetJob(JobBase):
         # use it directly
         data = server.get_file_content(decoder.version, info.data_start, info.data_size)
         content = decoder.decode_content(info, data)
-        atomic_write(tmp, content)
+        file_write(tmp, content)
         return tmp

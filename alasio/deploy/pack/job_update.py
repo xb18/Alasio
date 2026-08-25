@@ -8,7 +8,7 @@ from alasio.deploy.pack.job_reset import ResetJob
 from alasio.deploy.pack.pack_model import IdxInfo
 from alasio.ext import env
 from alasio.ext.cache import InstanceCacheOperation
-from alasio.ext.path.atomic import atomic_read_bytes, atomic_write
+from alasio.ext.path.atomic import atomic_read_bytes, file_write
 from alasio.logger import logger
 
 
@@ -140,8 +140,12 @@ class UpdateJob(JobBase):
         """
         Write the data to the job file, so that a future run can resume
         from it if this run gets interrupted.
+
+        The job file lives in the workspace, a corrupted one is
+        detected by get_unfinished_job() on the next run, so a plain
+        write is enough.
         """
-        atomic_write(env.PROJECT_ROOT.joinpath(self.JOB_FILE), self._data)
+        file_write(env.PROJECT_ROOT.joinpath(self.JOB_FILE), self._data)
 
     def unpack(self):
         """
@@ -195,14 +199,14 @@ class UpdateJob(JobBase):
                 # write the current content to the tmp file, replace()
                 # chmod-ed the target to the record mode
                 if not self._matches(info, self._read_current(tmp)).match:
-                    atomic_write(tmp, current.data)
+                    file_write(tmp, current.data)
                 pending.append(PendingFile(
                     info=info, tmp=tmp, mode=info.mode_decoded))
                 continue
             if result.match_data:
                 # only the EOL differs, write the converted content
                 # to the tmp file without reading the sources
-                atomic_write(tmp, result.match_data)
+                file_write(tmp, result.match_data)
                 if deleted:
                     self._append_deleted(pending, deleted)
                 pending.append(PendingFile(
@@ -217,7 +221,7 @@ class UpdateJob(JobBase):
                 continue
             if not self._matches(info, self._read_current(tmp)).match:
                 # decompress and write to the tmp file
-                atomic_write(tmp, content)
+                file_write(tmp, content)
             if deleted:
                 self._append_deleted(pending, deleted)
             # the file is written by python with the default mode 666,
@@ -282,7 +286,7 @@ class UpdateJob(JobBase):
                 new_index_data = None
                 failed.append(item)
             else:
-                atomic_write(tmp, new_index_data)
+                file_write(tmp, new_index_data)
                 pending.append(PendingFile(
                     info=info, tmp=tmp, mode=info.mode_decoded if info.mode == 1 else None))
             break
@@ -337,7 +341,7 @@ class UpdateJob(JobBase):
                 logger.warning(f'Failed to download {info.path}: {e}')
                 failed.append(item)
                 continue
-            atomic_write(tmp, content)
+            file_write(tmp, content)
             pending.append(PendingFile(
                 info=info, tmp=tmp, mode=info.mode_decoded if info.mode == 1 else None))
         self.pending += pending
