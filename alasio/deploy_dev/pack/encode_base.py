@@ -9,6 +9,7 @@ from alasio.ext.algorithm.pathlen_coding import encode_prefix_comb, encode_suffi
 from alasio.ext.algorithm.vint import encode_vint
 from alasio.ext.algorithm.vlenint import encode_vlenint
 from alasio.ext.cache import cached_property
+from alasio.ext.path.validate import validate_filepath
 
 
 class PackEncodeBase:
@@ -139,6 +140,13 @@ class PackEncodeBase:
         yield encode_vint(len(self.refinfo))
         # length of: FileInfo
         yield encode_vint(len(self.fileinfo))
+
+        # every record path, a pack must not carry unsafe paths: reject
+        # absolute / traversal paths and names that cannot be unpacked
+        # on some platform
+        files = list(self._iterfile(iter_ref=True, iter_file=True))
+        for file in files:
+            validate_filepath(file.path)
 
         # filepath
         list_path: "deque[bytes]" = deque()

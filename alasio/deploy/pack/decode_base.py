@@ -9,6 +9,7 @@ from alasio.ext.algorithm.vlenint import decode_vlenint
 from alasio.ext.cache import cached_property
 from alasio.ext.compress.algo_lzma import lzma_decompress
 from alasio.ext.compress.algo_zstd import zstd_decompress
+from alasio.ext.path.validate import validate_filepath
 
 
 class PackDecodeError(ValueError):
@@ -434,7 +435,9 @@ class PackDecodeBase:
             list[str]: Decoded full paths in encoded order
 
         Raises:
-            PackDecodeError: If a suffix lookback is out of range
+            PackDecodeError: If a suffix lookback is out of range, or a
+                decoded path fails validate_filepath (absolute path,
+                traversal, illegal characters or reserved names)
         """
         paths = []
         prev = ''
@@ -453,6 +456,12 @@ class PackDecodeBase:
             else:
                 suffix = ''
             path = ''.join((prev[:prefix_reuse[i]], remaining, suffix))
+            # the path is used to build the unpack target, reject unsafe
+            # paths before they touch the filesystem
+            try:
+                validate_filepath(path)
+            except ValueError as e:
+                raise PackDecodeError(f'Failed to decode paths: {e}') from e
             paths.append(path)
             prev = path
         return paths
