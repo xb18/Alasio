@@ -5,105 +5,362 @@ validate_filename() is pure string validation, validate_resolve_filepath()
 runs on the in-memory fake filesystem.
 """
 import os
+import re
 
 import pytest
 
-from alasio.ext.path.validate import validate_filename, validate_resolve_filepath
+from alasio.ext.path.validate import validate_filename, validate_filepath, validate_resolve_filepath
 from alasio.testing.filesystem import fs  # noqa: F401
 
 
 class TestValidateFilename:
     """Tests for validate_filename()."""
 
-    # We use parametrize to test a wide range of invalid inputs with a single function.
+    # --- Check 1: Basic sanity ---
     @pytest.mark.parametrize("invalid_name", [
-        # Check 1: Type and emptiness
         None,
         123,
         [],
         {},
-        "",
+    ])
+    def test_non_string_names_raise_value_error(self, invalid_name):
+        """Non-string names should be rejected with the type error message."""
+        with pytest.raises(ValueError, match="Filename should be a string"):
+            validate_filename(invalid_name)
 
-        # Check 2: Character length too long
-        "a" * 256,
+    def test_empty_name_raises_value_error(self):
+        """Empty names should be rejected with the emptiness error message."""
+        with pytest.raises(ValueError, match="Filename cannot be empty"):
+            validate_filename("")
 
-        # Check 3: Illegal characters
-        "my/file.txt",
-        "my\\file.txt",
-        "my:file.txt",
-        "my*file.txt",
-        'my"file.txt',
-        "my?file.txt",
-        "my<file.txt",
-        "my>file.txt",
-        "my|file.txt",
+    # --- Check 2: Length ---
+    def test_name_too_long_raises_value_error(self):
+        """Names longer than 255 chars should be rejected."""
+        with pytest.raises(ValueError, match="Filename is too long, length should <= 255"):
+            validate_filename("a" * 256)
 
-        # Check 3: Control characters
-        "file-with-newline\n.txt",
-        "file-with-tab\t.txt",
-        "file-with-null\0.txt",
+    # --- Check 3: Illegal characters ---
+    @pytest.mark.parametrize("char", ['\\', '/', ':', '*', '?', '"', '<', '>', '|'])
+    def test_illegal_characters_raise_value_error(self, char):
+        """Names containing illegal characters should be rejected."""
+        message = f'Filename should not contain character: "{char}"'
+        with pytest.raises(ValueError, match=re.escape(message)):
+            validate_filename(f"my{char}file.txt")
 
-        # Check 4: Reserved names
-        ".",
-        "..",
-        "$MFT",
+    # --- Check 3: Control characters ---
+    @pytest.mark.parametrize("char_ord", [0, 1, 9, 10, 127])
+    def test_control_characters_raise_value_error(self, char_ord):
+        """Names containing control characters should be rejected."""
+        char = chr(char_ord)
+        message = f"Filename should not contain control character (ASCII: {char_ord})"
+        with pytest.raises(ValueError, match=re.escape(message)):
+            validate_filename(f"file-with-{char}-name.txt")
+
+    # --- Check 4: Directory pointers ---
+    @pytest.mark.parametrize("invalid_name", [".", ".."])
+    def test_directory_pointers_raise_value_error(self, invalid_name):
+        """`.` and `..` should be reported as directory pointers."""
+        with pytest.raises(ValueError, match="Filename cannot be directory pointer"):
+            validate_filename(invalid_name)
+
+    # --- Check 5: Start/end characters ---
+    @pytest.mark.parametrize("invalid_name", [
+        " CON",
+        " LPT1.txt",
+        " LPT1.abc.txt",
+        " starts-with-space.txt",
+    ])
+    def test_name_starting_with_space_raises_value_error(self, invalid_name):
+        """Names starting with a space should be rejected."""
+        with pytest.raises(ValueError, match="Filename cannot start with a <space>"):
+            validate_filename(invalid_name)
+
+    @pytest.mark.parametrize("invalid_name", [
+        "CON ",
+        "CON. ",
+        "ends-with-space.txt ",
+    ])
+    def test_name_ending_with_space_raises_value_error(self, invalid_name):
+        """Names ending with a space should be rejected."""
+        with pytest.raises(ValueError, match="Filename cannot end with a <space>"):
+            validate_filename(invalid_name)
+
+    @pytest.mark.parametrize("invalid_name", [
+        "CON.",
+        "CON .",
+        "LPT1.txt.",
+        "ends-with-dot.txt.",
+    ])
+    def test_name_ending_with_dot_raises_value_error(self, invalid_name):
+        """Names ending with a dot should be rejected."""
+        with pytest.raises(ValueError, match="Filename cannot end with a <dot>"):
+            validate_filename(invalid_name)
+
+    # --- Check 6: NTFS metadata names ---
+    @pytest.mark.parametrize("invalid_name", ["$MFT", "$logfile"])
+    def test_ntfs_metadata_names_raise_value_error(self, invalid_name):
+        """NTFS metadata names should be rejected case-insensitively."""
+        with pytest.raises(ValueError, match="Filename cannot be NTFS metadata name"):
+            validate_filename(invalid_name)
+
+    # --- Check 6: Reserved system names ---
+    @pytest.mark.parametrize("invalid_name", [
+        "CON",
         "con",
         "PRN.txt",
         "lpt1.doc",
         "COM5.zip",
         "NUL",
         "aux.json",
-        # windows will ignore <space> prefix, <space> <dot> suffix
-        "CON ",
-        " CON",
-        "CON.",
-        "CON. ",
-        "CON .",
         "LPT1.txt",
-        "LPT1 .txt",
-        " LPT1.txt",
         "LPT1..txt",
-        "LPT1.txt.",
         "LPT1.abc.txt",
+        # Windows strips trailing dots and spaces when resolving device names
+        "LPT1 .txt",
         "LPT1 .abc.txt",
-        " LPT1.abc.txt",
-
-        # Check 5: Invalid start/end characters
-        " starts-with-space.txt",
-        "ends-with-space.txt ",
-        "ends-with-dot.txt.",
-
-        # Check 6: Byte length too long (aggressive test)
-        "a" * 253 + "€",  # Char len is 254, but byte len is 256
-
-        # Check 6: Invalid encoding (aggressive test)
-        "malformed-\ud800-string.txt",
     ])
-    def test_invalid_inputs_raise_value_error(self, invalid_name):
-        """
-        Verifies that validate_filename raises a ValueError for any invalid input.
-        This test does NOT check the content of the error message, only that an
-        exception of the correct type is raised.
-        """
-        with pytest.raises(ValueError):
+    def test_reserved_system_names_raise_value_error(self, invalid_name):
+        """Reserved system names like `CON` or `LPT1` should be rejected."""
+        with pytest.raises(ValueError, match="Filename cannot be reserved system name"):
             validate_filename(invalid_name)
 
+    # --- Check 7: Byte length and encoding ---
+    def test_byte_length_too_long_raises_value_error(self):
+        """Names exceeding 255 UTF-8 bytes should be rejected."""
+        with pytest.raises(ValueError, match="Filename is too long, byte_length should <= 255"):
+            validate_filename("a" * 253 + "€")
+
+    def test_invalid_encoding_raises_value_error(self):
+        """Names that cannot be UTF-8 encoded should be rejected."""
+        with pytest.raises(ValueError, match="Filename contains invalid characters that cannot be UTF-8 encoded"):
+            validate_filename(f"malformed-{chr(0xD800)}-string.txt")
+
+    # --- Valid names ---
     @pytest.mark.parametrize("valid_name", [
         "file.txt",
         "document-1.docx",
         "image.jpg",
         "a" * 255,  # Max length
+        "€" * 85,  # 255 bytes in UTF-8, multibyte name
+        "中文ファイル名.txt",
+        # Names that merely look like reserved names are still valid
+        "CON2.txt",  # Only exact basenames are reserved
+        "COM10.zip",  # Only COM1-COM9 are reserved
+        "$MFT2",  # Only exact NTFS metadata names are reserved
+        ".gitignore",  # Dotfiles are valid
+        "..git",
     ])
-    def test_valid_inputs_do_not_raise_exception(self, valid_name):
+    def test_valid_names_do_not_raise_exception(self, valid_name):
         """
-        Verifies that valid filenames do not cause any exception to be raised.
-        This is the counterpart to the exception test, ensuring the function
-        doesn't fail on good data.
+        Verifies that valid names pass through validation without exception.
         """
         try:
             validate_filename(valid_name)
         except ValueError:
             pytest.fail(f"validate_filename('{valid_name}') raised an unexpected ValueError.")
+
+
+class TestValidateFilepath:
+    """Tests for validate_filepath()."""
+
+    # --- Check 1: Basic sanity ---
+    @pytest.mark.parametrize("invalid_path", [
+        None,
+        123,
+        [],
+        {},
+    ])
+    def test_non_string_paths_raise_value_error(self, invalid_path):
+        """Non-string paths should be rejected with the type error message."""
+        with pytest.raises(ValueError, match="Path should be a string"):
+            validate_filepath(invalid_path)
+
+    def test_empty_path_raises_value_error(self):
+        """Empty paths should be rejected with the emptiness error message."""
+        with pytest.raises(ValueError, match="Path cannot be empty"):
+            validate_filepath("")
+
+    # --- Check 2: Overall structure ---
+    @pytest.mark.parametrize("invalid_path", [
+        "/absolute.txt",
+        "\\absolute.txt",
+    ])
+    def test_absolute_paths_raise_value_error(self, invalid_path):
+        """Paths starting with a slash should be rejected on all platforms."""
+        with pytest.raises(ValueError, match="Path cannot be absolute or start with a slash"):
+            validate_filepath(invalid_path)
+
+    def test_drive_absolute_path_raises_value_error(self):
+        """
+        Drive-absolute paths should be rejected on all platforms.
+
+        On Windows they are detected as absolute, on POSIX the drive
+        component is rejected for containing a colon.
+        """
+        with pytest.raises(ValueError):
+            validate_filepath("C:\\absolute.txt")
+
+    def test_overall_length_raises_value_error(self):
+        """Paths longer than 4096 chars should be rejected."""
+        with pytest.raises(ValueError, match="Path is too long, length should <= 4096"):
+            validate_filepath("/".join(["a"] * 2049))
+
+    # --- Check 3: Empty components ---
+    @pytest.mark.parametrize("invalid_path", [
+        "a//b.txt",
+        "a/",
+        "a/b/",
+        "a///b",
+    ])
+    def test_empty_components_raise_value_error(self, invalid_path):
+        """Empty components from repeated or trailing slashes should be rejected."""
+        with pytest.raises(ValueError, match="Path component cannot be empty"):
+            validate_filepath(invalid_path)
+
+    # --- Check 3: Component length ---
+    @pytest.mark.parametrize("invalid_path", [
+        "a/" + "b" * 256,
+        "b" * 256,
+    ])
+    def test_component_too_long_raises_value_error(self, invalid_path):
+        """Components longer than 255 chars should be rejected."""
+        with pytest.raises(ValueError, match="Path component is too long, length should <= 255"):
+            validate_filepath(invalid_path)
+
+    # --- Check 3: Illegal characters ---
+    @pytest.mark.parametrize("char", [':', '*', '?', '"', '<', '>', '|'])
+    def test_illegal_characters_raise_value_error(self, char):
+        """Components containing illegal characters should be rejected."""
+        message = f'Path component should not contain character: "{char}"'
+        with pytest.raises(ValueError, match=re.escape(message)):
+            validate_filepath(f"a/b{char}file.txt")
+
+    # --- Check 3: Control characters ---
+    @pytest.mark.parametrize("char_ord", [0, 1, 9, 10, 127])
+    def test_control_characters_raise_value_error(self, char_ord):
+        """Components containing control characters should be rejected."""
+        char = chr(char_ord)
+        message = f"Path component should not contain control character (ASCII: {char_ord})"
+        with pytest.raises(ValueError, match=re.escape(message)):
+            validate_filepath(f"a/b{char}c.txt")
+
+    # --- Check 4: Directory pointers ---
+    @pytest.mark.parametrize("invalid_path", [
+        ".",
+        "..",
+        "a/.",
+        "a/..",
+    ])
+    def test_directory_pointers_raise_value_error(self, invalid_path):
+        """`.` and `..` components should be reported as directory pointers."""
+        with pytest.raises(ValueError, match="Path component cannot be directory pointer"):
+            validate_filepath(invalid_path)
+
+    # --- Check 5: Start/end characters ---
+    @pytest.mark.parametrize("invalid_path", [
+        " starts-with-space.txt",
+        " CON",
+        " LPT1.txt",
+        " LPT1.abc.txt",
+    ])
+    def test_component_starting_with_space_raises_value_error(self, invalid_path):
+        """Components starting with a space should be rejected."""
+        with pytest.raises(ValueError, match="Path component cannot start with a <space>"):
+            validate_filepath(invalid_path)
+
+    @pytest.mark.parametrize("invalid_path", [
+        "dir/ends-with-space.txt ",
+        "CON ",
+        "CON. ",
+    ])
+    def test_component_ending_with_space_raises_value_error(self, invalid_path):
+        """Components ending with a space should be rejected."""
+        with pytest.raises(ValueError, match="Path component cannot end with a <space>"):
+            validate_filepath(invalid_path)
+
+    @pytest.mark.parametrize("invalid_path", [
+        "dir/ends-with-dot.txt.",
+        "CON.",
+        "CON .",
+        "LPT1.txt.",
+    ])
+    def test_component_ending_with_dot_raises_value_error(self, invalid_path):
+        """Components ending with a dot should be rejected."""
+        with pytest.raises(ValueError, match="Path component cannot end with a <dot>"):
+            validate_filepath(invalid_path)
+
+    # --- Check 6: NTFS metadata names ---
+    @pytest.mark.parametrize("invalid_path", [
+        "$MFT",
+        "dir/$LogFile",
+    ])
+    def test_ntfs_metadata_names_raise_value_error(self, invalid_path):
+        """NTFS metadata names should be rejected case-insensitively."""
+        with pytest.raises(ValueError, match="Path component cannot be NTFS metadata name"):
+            validate_filepath(invalid_path)
+
+    # --- Check 6: Reserved system names ---
+    @pytest.mark.parametrize("invalid_path", [
+        "CON",
+        "con.txt",
+        "a/LPT1.doc",
+        "COM5.zip",
+        "NUL",
+        "aux.json",
+        "LPT1.txt",
+        "LPT1..txt",
+        "LPT1.abc.txt",
+        # Windows strips trailing dots and spaces when resolving device names
+        "LPT1 .txt",
+        "LPT1 .abc.txt",
+    ])
+    def test_reserved_system_names_raise_value_error(self, invalid_path):
+        """Reserved system names like `CON` or `LPT1` should be rejected."""
+        with pytest.raises(ValueError, match="Path component cannot be reserved system name"):
+            validate_filepath(invalid_path)
+
+    # --- Check 7: Byte length and encoding ---
+    @pytest.mark.parametrize("invalid_path", [
+        "dir/" + "a" * 253 + "€",  # Char length is 254, but byte length is 256
+        "€" * 86,  # Char length is 86, but byte length is 258
+    ])
+    def test_component_byte_length_too_long_raises_value_error(self, invalid_path):
+        """Components exceeding 255 UTF-8 bytes should be rejected."""
+        with pytest.raises(ValueError, match="Path component is too long, byte_length should <= 255"):
+            validate_filepath(invalid_path)
+
+    def test_invalid_encoding_raises_value_error(self):
+        """Components that cannot be UTF-8 encoded should be rejected."""
+        with pytest.raises(ValueError, match="Path component contains invalid characters that cannot be UTF-8 encoded"):
+            validate_filepath(f"malformed-{chr(0xD800)}-string.txt")
+        with pytest.raises(ValueError, match="Path component contains invalid characters that cannot be UTF-8 encoded"):
+            validate_filepath(f"dir/malformed-{chr(0xD800)}.txt")
+
+    # --- Valid paths ---
+    @pytest.mark.parametrize("valid_path", [
+        "file.txt",
+        "dir/file.txt",
+        "dir/sub/file.tar.gz",
+        "dir\\sub\\file.txt",  # Backslash is treated as a separator
+        "a" * 255,  # Max component length
+        "€" * 85,  # 255 bytes in UTF-8, multibyte component
+        "中文/ファイル.txt",
+        "/".join(["a" * 255] * 16),  # 4095 chars, max overall length
+        # Names that merely look like reserved names are still valid
+        "CON2.txt",  # Only exact basenames are reserved
+        "COM10.zip",  # Only COM1-COM9 are reserved
+        "$MFT2",  # Only exact NTFS metadata names are reserved
+        ".gitignore",  # Dotfiles are valid
+        "..git",
+    ])
+    def test_valid_paths_do_not_raise_exception(self, valid_path):
+        """
+        Verifies that valid paths pass through validation without exception.
+        """
+        try:
+            validate_filepath(valid_path)
+        except ValueError:
+            pytest.fail(f"validate_filepath('{valid_path}') raised an unexpected ValueError.")
 
 
 class TestValidateResolveFilepath:

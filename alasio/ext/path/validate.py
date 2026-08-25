@@ -51,7 +51,13 @@ def validate_filename(filename):
         if char_ord < 32 or char_ord == 127:
             raise ValueError(f'Filename should not contain control character (ASCII: {char_ord})')
 
-    # --- Check 4: Ending Character Restriction ---
+    # --- Check 4: Directory Pointers ---
+    # Checked before the end-with-dot restriction, so that `.` and `..` are
+    # reported as directory pointers instead of ending with a dot.
+    if filename == '.' or filename == '..':
+        raise ValueError(f'Filename cannot be directory pointer: "{filename}"')
+
+    # --- Check 5: Start/End Character Restriction ---
     if filename.startswith(' '):
         raise ValueError('Filename cannot start with a <space>')
     if filename.endswith(' '):
@@ -59,10 +65,10 @@ def validate_filename(filename):
     if filename.endswith('.'):
         raise ValueError('Filename cannot end with a <dot>')
 
-    # --- Check 5: Reserved Names ---
-    # Check for exact matches against names like `$MFT` or `.`
-    if filename == '.' or filename == '..':
-        raise ValueError(f'Filename cannot be directory pointer: "{filename}"')
+    # --- Check 6: Reserved Names ---
+    # Windows resolves device names ignoring trailing dots and spaces, so the
+    # basename is stripped the same way before comparing, e.g. `LPT1 .txt`
+    # is treated as the reserved name `LPT1`.
     upper = filename.upper()
     if upper in NTFS_METADATA_NAMES:
         raise ValueError(f'Filename cannot be NTFS metadata name: {upper}')
@@ -72,7 +78,7 @@ def validate_filename(filename):
     if base_name in RESERVED_SYSTEM_NAMES:
         raise ValueError(f'Filename cannot be reserved system name: {base_name}')
 
-    # --- Check 6: Final Byte-Length Check (Most Expensive) ---
+    # --- Check 7: Final Byte-Length Check (Most Expensive) ---
     # This is the definitive check for multi-byte character strings (e.g., UTF-8).
     # It's placed last because the encode() operation is more costly than other checks.
     try:
@@ -113,7 +119,13 @@ def _validate_path_component(component: str):
         if char_ord < 32 or char_ord == 127:  # Control chars & DEL
             raise ValueError(f'Path component should not contain control character (ASCII: {char_ord})')
 
-    # --- Check 4: Start/End Character Restriction ---
+    # --- Check 4: Directory Pointers ---
+    # Checked before the end-with-dot restriction, so that `.` and `..` are
+    # reported as directory pointers instead of ending with a dot.
+    if component == '.' or component == '..':
+        raise ValueError(f'Path component cannot be directory pointer: "{component}"')
+
+    # --- Check 5: Start/End Character Restriction ---
     if component.startswith(' '):
         raise ValueError('Path component cannot start with a <space>')
     if component.endswith(' '):
@@ -121,10 +133,10 @@ def _validate_path_component(component: str):
     if component.endswith('.'):
         raise ValueError('Path component cannot end with a <dot>')
 
-    # --- Check 5: Reserved Names ---
-    if component in ('.', '..'):
-        raise ValueError(f'Path component cannot be directory pointer: "{component}"')
-
+    # --- Check 6: Reserved Names ---
+    # Windows resolves device names ignoring trailing dots and spaces, so the
+    # basename is stripped the same way before comparing, e.g. `LPT1 .txt`
+    # is treated as the reserved name `LPT1`.
     upper = component.upper()
     if upper in NTFS_METADATA_NAMES:
         raise ValueError(f'Path component cannot be NTFS metadata name: {upper}')
@@ -134,7 +146,7 @@ def _validate_path_component(component: str):
     if base_name in RESERVED_SYSTEM_NAMES:
         raise ValueError(f'Path component cannot be reserved system name: {base_name}')
 
-    # --- Check 6: Final Byte-Length Check (Most Expensive) ---
+    # --- Check 7: Final Byte-Length Check (Most Expensive) ---
     try:
         byte_length = len(component.encode('utf-8'))
     except UnicodeEncodeError as e:
