@@ -139,14 +139,11 @@ class TestInterruptableSleep:
 
     def test_sleep_completes(self):
         """Sleep returns True after the full duration."""
-        with mock.patch(
-            "alasio.base.scheduler.scheduler.time.perf_counter"
-        ) as mock_time:
+        with PatchTime():
             with mock.patch(
                 "alasio.base.scheduler.scheduler.BackendBridge"
             ) as mock_bridge:
                 mock_bridge.return_value.scheduler_stopping.is_set.return_value = False
-                mock_time.side_effect = [100.0, 100.001, 100.002, 100.01]
                 result = interruptable_sleep(0.01)
                 assert result is True
 
@@ -157,9 +154,7 @@ class TestInterruptableSleep:
         with mock.patch(
             "alasio.base.scheduler.scheduler.BackendBridge", return_value=backend
         ):
-            with mock.patch(
-                "alasio.base.scheduler.scheduler.time.perf_counter", return_value=100.0
-            ):
+            with PatchTime():
                 with pytest.raises(SchedulerStop):
                     interruptable_sleep(5)
 
@@ -611,21 +606,26 @@ class TestAlasioSchedulerWaitFuture:
         config = _cache_config(scheduler, Optimization__WhenTaskQueueEmpty="stop_game")
         _cache_device(scheduler)
 
-        future = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(hours=1)
-
         _patch_backend()
-
-        with mock.patch("alasio.base.scheduler.scheduler.ConfigWatcher") as MockWatcher:
-            watcher = MockWatcher.return_value
-            watcher.init.return_value = watcher
-            watcher.is_modified.return_value = True
-            with mock.patch("alasio.base.scheduler.scheduler.getnow") as mock_getnow:
-                mock_getnow.return_value = datetime.now(timezone.utc).replace(
-                    microsecond=0
-                )
-                with mock.patch.object(scheduler, "_run_task") as mock_run:
-                    with mock.patch.object(scheduler, "_on_game_stop") as mock_stop:
-                        result = scheduler._wait_future("Main", future)
+        with PatchTime():
+            future = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(
+                hours=1
+            )
+            with mock.patch(
+                "alasio.base.scheduler.scheduler.ConfigWatcher"
+            ) as MockWatcher:
+                watcher = MockWatcher.return_value
+                watcher.init.return_value = watcher
+                watcher.is_modified.return_value = True
+                with mock.patch(
+                    "alasio.base.scheduler.scheduler.getnow"
+                ) as mock_getnow:
+                    mock_getnow.return_value = datetime.now(timezone.utc).replace(
+                        microsecond=0
+                    )
+                    with mock.patch.object(scheduler, "_run_task") as mock_run:
+                        with mock.patch.object(scheduler, "_on_game_stop") as mock_stop:
+                            result = scheduler._wait_future("Main", future)
 
         assert result is False
         mock_run.assert_any_call("stop_game")
