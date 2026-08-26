@@ -1,5 +1,8 @@
+import httpx
+
 from alasio.deploy.pack.decode_base import PackDecodeBase, PackDecodeError
 from alasio.deploy.pack.job_base import JobBase
+from alasio.deploy.pack.job_rebuild import RebuildJob
 from alasio.deploy.pack.job_reset import ResetJob
 from alasio.deploy.pack.job_unpack import UnpackJob
 from alasio.deploy.pack.job_update import UpdateJob
@@ -26,8 +29,9 @@ class DeployJob:
         job object of the corresponding type.
 
         The job type is decided by the job file content: the REST
-        marker is a validation job (ResetJob), a pack with refinfo is
-        an update pack (UpdateJob), a pack without it is a full pack
+        marker is a validation job (ResetJob), the RBIL marker is a
+        rebuild job (RebuildJob), a pack with refinfo is an update
+        pack (UpdateJob), a pack without it is a full pack
         (UnpackJob). A corrupted job file is cleaned up with a
         warning.
 
@@ -47,6 +51,9 @@ class DeployJob:
         if data == ResetJob.MARK:
             # a validation job, its data comes from the local index pack
             return ResetJob(server, resume=True)
+        if data == RebuildJob.MARK:
+            # a rebuild job, its data comes from the local index pack
+            return RebuildJob(server, resume=True)
         try:
             decoder = PackDecodeBase(data)
         except PackDecodeError as e:
@@ -70,8 +77,12 @@ class DeployJob:
         """
         Unpack a full pack, unified wrapper of UnpackJob.
 
-        Finishes the unfinished job first, then unpacks the new data,
-        the caller only needs to call run() of each job.
+        Unpacking is a local rebuild: the leftover files of the old
+        version (recorded in the old local index pack, not in this
+        pack) are removed, the new index pack replaces .pack/index.pack
+        last. No server is involved. Finishes the unfinished job first,
+        then unpacks the new data, the caller only needs to call run()
+        of each job.
 
         Args:
             data (bytes): Full pack data
@@ -114,16 +125,19 @@ class DeployJob:
            index pack .pack/index.pack
         2. a version mismatch downloads the update pack
            /{new_version}/from_{old_version}.pack and applies it with
-           UpdateJob
+           UpdateJob, a missing update pack (out of the update window
+           or removed) falls back to RebuildJob, a failed update also
+           falls back to RebuildJob
         3. the same version continues with ResetJob: the local index
            pack is checked against the latest checksum (an outdated
            self-consistent index is downloaded again), then every
            recorded file is verified and repaired
 
         A missing or malformed local index pack has an unknown
-        version, the update cannot be incremental: ResetJob repairs
-        the index and verifies the files instead. The unfinished job
-        is finished inside, the caller does not need to care about it.
+        version, the update cannot be incremental: RebuildJob
+        downloads the latest index unconditionally and rebuilds the
+        working tree from it. The unfinished job is finished inside,
+        the caller does not need to care about it.
 
         Args:
             server (ServerFile): Server to check and download from
@@ -145,13 +159,32 @@ class DeployJob:
 
         if not local:
             # the local index is missing or malformed, the version is
-            # unknown: ResetJob repairs the index and the files
-            job = ResetJob(server)
+            # unknown: rebuild from the latest index
+            logger.warning('Failed to read the local version, rebuilding from the latest index')
+            job = RebuildJob(server)
             return job.run()
         if local != info.version:
             # a version mismatch, apply the update pack incrementally
-            data = server.get_update_pack(local, info.version)
+            try:
+                data = server.get_update_pack(local, info.version)
+            except httpx.HTTPStatusError as e:
+                # the update pack of the local version is not on the
+                # server (out of the update window or removed), the
+                # incremental path is broken: rebuild from the latest index
+                logger.warning(
+                    f'Failed to get the update pack {local} -> {info.version}: {e}, '
+                    f'rebuilding from the latest index'
+                )
+                job = RebuildJob(server)
+                return job.run()
             job = UpdateJob(data, server=server)
+            if job.run():
+                return True
+            # the update pack failed to apply, rebuild from the latest
+            # index: a corrupt pack is bypassed, the latest index and
+            # the files are downloaded directly
+            logger.warning('Failed to apply the update pack, rebuilding from the latest index')
+            job = RebuildJob(server)
             return job.run()
         # the same version, check the index and the files
         job = ResetJob(server)

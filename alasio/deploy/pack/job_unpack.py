@@ -10,9 +10,14 @@ class UnpackJob(JobBase):
     """
     A full pack unpack task, interruptible and resumable.
 
-    The pack data is passed in __init__, the caller stores it to the job
-    file .pack/workspace/job.pack with write() before unpacking, so an
-    interrupted run can be resumed by the next run:
+    Unpacking is a local rebuild: the working tree is rebuilt from the
+    full pack data passed in __init__, the leftover files of the old
+    version (recorded in the old local index pack, not in this pack)
+    are removed, the new index pack replaces .pack/index.pack last.
+    No server is involved. The pack data is passed in __init__, the
+    caller stores it to the job file .pack/workspace/job.pack with
+    write() before unpacking, so an interrupted run can be resumed by
+    the next run:
 
         job = DeployJob.get_unfinished_job()
         if job is not None:
@@ -26,11 +31,16 @@ class UnpackJob(JobBase):
     All files unpack into env.PROJECT_ROOT, the pack structure (.pack/)
     lives inside it. The unpack flow follows the draft in PackEncodeBase:
 
-    1. unpack() writes the index section to .pack/workspace/new_index.tmp
-       and decompresses all files to
-       .pack/workspace/{size}_{sha1}_{index}.tmp, real files are
-       untouched. Files that exist and pass the size + sha1 check are
-       skipped, leftover tmp files that pass the check are reused.
+    1. unpack() reads the old local index pack, writes the index
+       section to .pack/workspace/new_index.tmp and decompresses all
+       files to .pack/workspace/{size}_{sha1}_{index}.tmp, real files
+       are untouched. The leftover files of the old version, recorded
+       in the old index but not in this pack, are appended as deleted
+       markers, and the new index pack is the last record: an
+       interruption during replace() leaves the old index pack in
+       place, so a resumed run still computes the leftover deletion
+       list from it. Files that exist and pass the size + sha1 check
+       are skipped, leftover tmp files that pass the check are reused.
     2. replace() moves every tmp file to the target path atomically and
        removes the deleted markers. Real file operations only start
        after every tmp file is ready, so an interruption never leaves a
@@ -107,25 +117,31 @@ class UnpackJob(JobBase):
         Writes the index section to .pack/workspace/new_index.tmp and
         decompresses every file to
         .pack/workspace/{size}_{sha1}_{index}.tmp, filling self.pending
-        with the changes to apply in replace(). The index pack is
-        prepared to the workspace like every other record, replace()
-        applies it to .pack/index.pack together with the other files.
-        A target file whose content matches the record only after
-        converting its EOL is written to the tmp file with the
-        converted content, no decompression is needed.
+        with the changes to apply in replace(). The old local index
+        pack is read first: files recorded in it but not in this pack
+        are the leftover files of the old version, removed by
+        replace() like the deleted markers. A target file whose
+        content matches the record only after converting its EOL is
+        written to the tmp file with the converted content, no
+        decompression is needed. The new index pack is replaced last:
+        an interruption during replace() leaves the old index pack in
+        place, so a resumed run still computes the leftover deletion
+        list from it.
         """
         decoder = PackDecodeBase(self._data)
         decoder.validate()
+        # the old index is read before the new index pack replaces it
+        old_fileinfo = self._old_fileinfo_from_index()
 
         # unpack index
-        tmp = self.workspace.joinpath(self.NEW_INDEX)
+        index_tmp = self.workspace.joinpath(self.NEW_INDEX)
         index_pack = decoder.extract_index_pack()
-        current = self._read_current(tmp)
+        current = self._read_current(index_tmp)
         if not current.exist or current.data != index_pack:
-            file_write(tmp, index_pack)
-        pending = [PendingFile(info=IdxInfo(path=self.INDEX_PACK), tmp=tmp)]
+            file_write(index_tmp, index_pack)
 
-        # unpack files
+        # unpack files, the loop body is unchanged
+        pending = []
         for index, (path, info) in enumerate(decoder.fileinfo.items()):
             target = env.PROJECT_ROOT.joinpath(path)
             if info.edit == 2:
@@ -159,4 +175,9 @@ class UnpackJob(JobBase):
             pending.append(PendingFile(
                 info=info, tmp=tmp, mode=info.mode_decoded if info.mode == 1 else None))
 
+        # the leftover files of the old version, recorded in the old
+        # index but not in this pack
+        pending += self._leftover_deletions(old_fileinfo, decoder.fileinfo)
+        # the new index pack is replaced last, see the docstring
+        pending.append(PendingFile(info=IdxInfo(path=self.INDEX_PACK), tmp=index_tmp))
         self.pending = pending

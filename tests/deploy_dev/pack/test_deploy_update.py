@@ -17,6 +17,7 @@ from conftest import FULL_SCENARIO_NEW, FULL_SCENARIO_OLD, MockServerFile
 
 from alasio.deploy.pack.decode_base import PackDecodeBase
 from alasio.deploy.pack.job import DeployJob
+from alasio.deploy.pack.job_rebuild import RebuildJob
 from alasio.deploy.pack.job_unpack import UnpackJob
 from alasio.deploy_dev.pack.pack_repo import PackFull
 from alasio.deploy_dev.pack.pack_update import PackUpdate
@@ -76,6 +77,8 @@ OLD_PACK = make_pack(FULL_SCENARIO_OLD, commit='old')
 NEW_PACK = make_pack(FULL_SCENARIO_NEW, commit='new')
 OLD_DECODER = PackDecodeBase(OLD_PACK)
 NEW_DECODER = PackDecodeBase(NEW_PACK)
+OLD_INDEX = bytes(OLD_DECODER.extract_index_pack())
+NEW_INDEX = bytes(NEW_DECODER.extract_index_pack())
 UPDATE = b''.join(PackUpdate(OLD_DECODER, NEW_DECODER).iter_pack_data())
 NEW_TREE = {
     path: bytes(NEW_DECODER.catfile(info))
@@ -83,9 +86,18 @@ NEW_TREE = {
     if info.edit != 2 and not path.startswith('.pack/')
 }
 SERVER = MockServerFile()
-SERVER.register_version('old', OLD_PACK, bytes(OLD_DECODER.extract_index_pack()))
-SERVER.register_version('new', NEW_PACK, bytes(NEW_DECODER.extract_index_pack()))
+SERVER.register_version('old', OLD_PACK, OLD_INDEX)
+SERVER.register_version('new', NEW_PACK, NEW_INDEX)
 SERVER.register_update('old', 'new', UPDATE)
+# servers of the fallback tests: the same versions without an update
+# pack (404), or with a corrupt one
+SERVER_NO_UPDATE = MockServerFile()
+SERVER_NO_UPDATE.register_version('old', OLD_PACK, OLD_INDEX)
+SERVER_NO_UPDATE.register_version('new', NEW_PACK, NEW_INDEX)
+SERVER_CORRUPT_UPDATE = MockServerFile()
+SERVER_CORRUPT_UPDATE.register_version('old', OLD_PACK, OLD_INDEX)
+SERVER_CORRUPT_UPDATE.register_version('new', NEW_PACK, NEW_INDEX)
+SERVER_CORRUPT_UPDATE.register_update('old', 'new', b'garbage')
 
 
 class TestDeployUpdate:
@@ -111,13 +123,47 @@ class TestDeployUpdate:
         assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
 
     def test_missing_local_index(self, app_folder):
-        """A missing local index falls back to ResetJob, the tree is
+        """A missing local index falls back to RebuildJob, the tree is
         rebuilt from the server."""
-        with logger.mock_capture_writer():
+        with logger.mock_capture_writer() as capture:
             assert DeployJob.update(SERVER)
+        assert capture.backend.any_contains('Failed to read the local version')
         assert read_tree() == NEW_TREE
         decoder = PackDecodeBase(file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack'))
         assert decoder.version == 'new'
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_update_pack_missing_falls_back(self, app_folder):
+        """A 404 of the update pack falls back to RebuildJob, the tree
+        is rebuilt from the latest index."""
+        UnpackJob(OLD_PACK).run()
+        with logger.mock_capture_writer() as capture:
+            assert DeployJob.update(SERVER_NO_UPDATE)
+        assert capture.backend.any_contains('Failed to get the update pack')
+        assert read_tree() == NEW_TREE
+        decoder = PackDecodeBase(file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack'))
+        assert decoder.version == 'new'
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_update_pack_corrupt_falls_back(self, app_folder):
+        """A corrupt update pack fails to apply and falls back to
+        RebuildJob, the tree is rebuilt from the latest index."""
+        UnpackJob(OLD_PACK).run()
+        with logger.mock_capture_writer() as capture:
+            assert DeployJob.update(SERVER_CORRUPT_UPDATE)
+        assert capture.backend.any_contains('Failed to apply the update pack')
+        assert read_tree() == NEW_TREE
+        decoder = PackDecodeBase(file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack'))
+        assert decoder.version == 'new'
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_unfinished_rebuild_finished_first(self, app_folder):
+        """An unfinished rebuild job is finished before the update."""
+        UnpackJob(OLD_PACK).run()
+        RebuildJob(SERVER).write()
+        with logger.mock_capture_writer():
+            assert DeployJob.update(SERVER)
+        assert read_tree() == NEW_TREE
         assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
 
     def test_unfinished_job_finished_first(self, app_folder):

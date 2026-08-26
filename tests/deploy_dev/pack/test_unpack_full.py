@@ -10,16 +10,88 @@ import os
 from hashlib import sha1
 
 import pytest
-from conftest import COMMIT, WEBSITE_FILES, WEBSITE_FULL_PACK, WEBSITE_INDEX_PACK
+from conftest import COMMIT, FULL_SCENARIO_NEW, FULL_SCENARIO_OLD, WEBSITE_FILES, WEBSITE_FULL_PACK, WEBSITE_INDEX_PACK
 
 from alasio.deploy.pack.decode_base import PackDecodeBase, PackDecodeError
 from alasio.deploy.pack.job import DeployJob
 from alasio.deploy.pack.job_base import CurrentFile, JobBase, MatchResult
 from alasio.deploy.pack.job_unpack import PendingFile, UnpackJob
 from alasio.deploy.pack.pack_model import IdxInfo
+from alasio.deploy_dev.pack.pack_repo import PackFull
 from alasio.ext import env
 from alasio.ext.path.atomic import file_read_bytes
+from alasio.git.mock.mock_repo import MockGitRepo
+from alasio.logger import logger
 from alasio.testing.filesystem import fs  # noqa: F401
+
+
+def make_pack(files, commit='c1'):
+    """
+    Build a full pack of a version.
+
+    Args:
+        files (dict[str, bytes | tuple[bytes, int]]): {path: content}
+            or {path: (content, mode)}
+        commit (str): Version of the pack. Defaults to 'c1'.
+
+    Returns:
+        bytes: Full pack data
+    """
+    repo = MockGitRepo()
+    for path, value in files.items():
+        if isinstance(value, tuple):
+            content, mode = value
+        else:
+            content, mode = value, 644
+        repo.register_file(commit, path, content, mode=mode)
+    repo.register_commit(commit, author_name='Author', message='')
+    return b''.join(PackFull(repo, commit=commit).iter_pack_data())
+
+
+def read_tree():
+    """
+    Read the working tree of the app folder as {path: content}.
+
+    Returns:
+        dict[str, bytes]: Working tree content
+    """
+    tree = {}
+    for root, dirs, files in os.walk(env.PROJECT_ROOT):
+        # the pack structure and the logger files are not part of the
+        # working tree
+        dirs[:] = [dir for dir in dirs if dir not in ('.pack', 'log')]
+        for name in files:
+            path = os.path.join(root, name)
+            key = os.path.relpath(path, env.PROJECT_ROOT).replace(os.sep, '/')
+            if key.startswith(('.pack/', 'log/')):
+                continue
+            tree[key] = file_read_bytes(path)
+    return tree
+
+
+# full upgrade scenario packs, module level singletons built before
+# the fake filesystem is active (MockGitRepo reads the real
+# .gitattributes file)
+OLD_PACK = make_pack(FULL_SCENARIO_OLD, commit='old')
+NEW_PACK = make_pack(FULL_SCENARIO_NEW, commit='new')
+OLD_DECODER = PackDecodeBase(OLD_PACK)
+NEW_DECODER = PackDecodeBase(NEW_PACK)
+OLD_INDEX = bytes(OLD_DECODER.extract_index_pack())
+NEW_INDEX = bytes(NEW_DECODER.extract_index_pack())
+NEW_TREE = {
+    path: bytes(NEW_DECODER.catfile(info))
+    for path, info in NEW_DECODER.fileinfo.items()
+    if info.edit != 2 and not path.startswith('.pack/')
+}
+# files of the old version that do not exist in the new one, the
+# leftover files deleted by an unpack over an old version
+OLD_ONLY = ['backend/legacy.py', 'scripts/old_tool.py', 'scripts/run.sh', 'data/cache.pkl']
+# packs of the leftover combination matrix: pkg/__init__.py exists
+# (present), is an auto deleted marker (no __init__.py under pkg/),
+# or is not recorded at all
+PKG_NO_INIT = make_pack({'pkg/tool.py': b'x\n'}, commit='no-init')
+PKG_WITH_INIT = make_pack({'pkg/__init__.py': b'', 'pkg/tool.py': b'x\n'}, commit='with-init')
+PKG_NO_PKG = make_pack({'app.py': b'y\n'}, commit='no-pkg')
 
 
 def run_job(data=WEBSITE_FULL_PACK):
@@ -637,3 +709,151 @@ class TestFileMode:
     def test_755_record_rejects_no_exec(self, app_folder, current):
         """A 755 record rejects any mode without execute bits."""
         assert not JobBase._mode_matches(self._info('scripts/deploy.sh'), self._current(current))
+
+
+class TestUnpackRebuild:
+    """Unpacking over an old version is a local rebuild: the leftover
+    files of the old version are removed, the new index pack replaces
+    .pack/index.pack last."""
+
+    def test_leftover_files_deleted(self, app_folder):
+        """Unpacking the new pack over the old one deletes the old-only
+        files and converges the tree."""
+        UnpackJob(OLD_PACK).run()
+        UnpackJob(NEW_PACK).run()
+        assert read_tree() == NEW_TREE
+        for path in OLD_ONLY:
+            assert not os.path.exists(env.PROJECT_ROOT / path), path
+        assert file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack') == NEW_INDEX
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_leftover_and_deleted_marker(self, app_folder):
+        """The leftover deletion and the deleted marker of the new
+        pack work together."""
+        UnpackJob(OLD_PACK).run()
+        # a file the new pack marks as deleted
+        target = env.PROJECT_ROOT / 'scripts/__init__.py'
+        os.makedirs(target.uppath(), exist_ok=True)
+        with open(target, 'wb') as f:
+            f.write(b'stale')
+        UnpackJob(NEW_PACK).run()
+        assert read_tree() == NEW_TREE
+        for path in OLD_ONLY:
+            assert not os.path.exists(env.PROJECT_ROOT / path), path
+        assert not os.path.exists(target)
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_user_file_kept(self, app_folder):
+        """A file outside every index is not a managed file and is
+        kept."""
+        UnpackJob(OLD_PACK).run()
+        target = env.PROJECT_ROOT / 'user/notes.txt'
+        os.makedirs(target.uppath(), exist_ok=True)
+        with open(target, 'wb') as f:
+            f.write(b'my notes')
+        UnpackJob(NEW_PACK).run()
+        # the user file is not a managed file: the tree is the new
+        # tree plus the user file
+        tree = read_tree()
+        assert all(tree[path] == content for path, content in NEW_TREE.items())
+        assert tree['user/notes.txt'] == b'my notes'
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_old_index_missing_ignored(self, app_folder):
+        """A missing old index is ignored: the unpack proceeds, the
+        leftovers are kept, a warning is logged."""
+        UnpackJob(OLD_PACK).run()
+        os.remove(env.PROJECT_ROOT / '.pack/index.pack')
+        with logger.mock_capture_writer() as capture:
+            UnpackJob(NEW_PACK).run()
+        assert capture.backend.any_contains('Failed to read the old index pack')
+        assert file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack') == NEW_INDEX
+        tree = read_tree()
+        assert all(tree[path] == content for path, content in NEW_TREE.items())
+        # without the old index the leftovers cannot be computed and
+        # are kept
+        for path in OLD_ONLY:
+            assert os.path.exists(env.PROJECT_ROOT / path), path
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_old_index_corrupted_ignored(self, app_folder):
+        """A corrupted old index is ignored: the unpack proceeds, the
+        leftovers are kept, a warning is logged."""
+        UnpackJob(OLD_PACK).run()
+        bad = bytearray(OLD_INDEX)
+        # flip a byte inside the checksum digest (the last 20 bytes)
+        bad[-5] ^= 0xFF
+        with open(env.PROJECT_ROOT / '.pack/index.pack', 'wb') as f:
+            f.write(bad)
+        with logger.mock_capture_writer() as capture:
+            UnpackJob(NEW_PACK).run()
+        assert capture.backend.any_contains('Failed to read the old index pack')
+        assert file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack') == NEW_INDEX
+        tree = read_tree()
+        assert all(tree[path] == content for path, content in NEW_TREE.items())
+        for path in OLD_ONLY:
+            assert os.path.exists(env.PROJECT_ROOT / path), path
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_index_replaced_last(self, app_folder):
+        """The new index pack is the last pending record, the leftover
+        deletions come before it."""
+        UnpackJob(OLD_PACK).run()
+        job = UnpackJob(NEW_PACK)
+        job.write()
+        job.unpack()
+        assert job.pending[-1].info.path == '.pack/index.pack'
+        # the leftover deletions are scheduled before the index record
+        index_pos = len(job.pending) - 1
+        leftover = [item for item in job.pending[:index_pos]
+                    if item.info.path in OLD_ONLY]
+        assert len(leftover) == len(OLD_ONLY)
+        for item in leftover:
+            assert item.info.edit == 2
+            assert item.tmp == ''
+
+    def test_resume_leftover_cleanup(self, app_folder):
+        """A run resumed from an interruption before replace()
+        recomputes the leftover deletion list from the old index."""
+        UnpackJob(OLD_PACK).run()
+        # an interruption before replace(): the job file is written,
+        # the old index pack is still in place
+        UnpackJob(NEW_PACK).write()
+        job = DeployJob.get_unfinished_job()
+        assert job is not None
+        job.run()
+        assert read_tree() == NEW_TREE
+        for path in OLD_ONLY:
+            assert not os.path.exists(env.PROJECT_ROOT / path), path
+        assert file_read_bytes(env.PROJECT_ROOT / '.pack/index.pack') == NEW_INDEX
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_old_deleted_new_added_downloaded(self, app_folder):
+        """Old D marker + new added record counts as added: the file
+        is unpacked, never treated as a leftover."""
+        UnpackJob(PKG_NO_INIT).run()
+        UnpackJob(PKG_WITH_INIT).run()
+        # pkg/__init__.py is a record of the new pack, unpacked
+        assert file_read_bytes(env.PROJECT_ROOT / 'pkg/__init__.py') == b''
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_old_deleted_new_missing_local_kept(self, app_folder):
+        """Old D marker + new pack without the path: the old D marker
+        is ignored by the leftover check, a local file is kept."""
+        UnpackJob(PKG_NO_INIT).run()
+        target = env.PROJECT_ROOT / 'pkg/__init__.py'
+        os.makedirs(target.uppath(), exist_ok=True)
+        with open(target, 'wb') as f:
+            f.write(b'stale')
+        UnpackJob(PKG_NO_PKG).run()
+        # not a managed file of the new pack, kept
+        assert file_read_bytes(target) == b'stale'
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_old_added_new_deleted_local_good_deleted(self, app_folder):
+        """Old record + new D marker: the file is removed by the
+        deleted marker of the new pack."""
+        UnpackJob(PKG_WITH_INIT).run()
+        UnpackJob(PKG_NO_INIT).run()
+        assert not os.path.exists(env.PROJECT_ROOT / 'pkg/__init__.py')
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')

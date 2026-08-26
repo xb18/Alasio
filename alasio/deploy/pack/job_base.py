@@ -4,10 +4,12 @@ from typing import Optional
 
 from msgspec import Struct
 
+from alasio.deploy.pack.decode_base import PackDecodeBase, PackDecodeError
 from alasio.deploy.pack.pack_model import IdxInfo
 from alasio.ext import env
-from alasio.ext.path.atomic import atomic_open, atomic_remove, atomic_replace, atomic_rmtree
+from alasio.ext.path.atomic import atomic_open, atomic_read_bytes, atomic_remove, atomic_replace, atomic_rmtree
 from alasio.ext.path.makedir import batch_makedirs
+from alasio.logger import logger
 
 
 class CurrentFile(Struct):
@@ -151,6 +153,56 @@ class JobBase:
         looks unfinished.
         """
         atomic_rmtree(self.workspace)
+
+    @staticmethod
+    def _old_fileinfo_from_index():
+        """
+        Read the fileinfo of the local index pack .pack/index.pack,
+        the leftover deletion base of a rebuild.
+
+        Deleted markers (edit == 2) are excluded: they describe files
+        that should not exist, not files that exist. A missing,
+        malformed or checksum-failed index pack degrades to {}: the
+        leftover cleanup is skipped, the rebuild still converges for
+        every file of the new index.
+
+        Returns:
+            dict[str, IdxInfo]: Fileinfo of the old local index pack,
+                {} when it is missing or malformed
+        """
+        try:
+            decoder = PackDecodeBase(
+                atomic_read_bytes(env.PROJECT_ROOT.joinpath(JobBase.INDEX_PACK)))
+            decoder.validate_index()
+            return {
+                path: info for path, info in decoder.fileinfo.items()
+                if info.edit != 2
+            }
+        except (FileNotFoundError, PackDecodeError) as e:
+            logger.warning(f'Failed to read the old index pack: {e}')
+            return {}
+
+    @staticmethod
+    def _leftover_deletions(old_fileinfo, new_fileinfo):
+        """
+        The leftover files of the old version: recorded in the old
+        index but not in the new one, removed by replace().
+
+        Args:
+            old_fileinfo (dict[str, IdxInfo]): Fileinfo of the old
+                index pack, deleted markers excluded
+            new_fileinfo (dict[str, IdxInfo]): Fileinfo of the new
+                index pack, all records
+
+        Returns:
+            list[PendingFile]: Deleted markers (edit == 2) of the
+                leftover paths, removed by replace()
+        """
+        return [
+            PendingFile(info=IdxInfo(path=path, edit=2), tmp='')
+            for path in old_fileinfo
+            if path not in new_fileinfo
+        ]
 
     @staticmethod
     def _read_current(file):

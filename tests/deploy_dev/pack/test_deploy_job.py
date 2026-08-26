@@ -12,6 +12,7 @@ from conftest import WEBSITE_FILES, WEBSITE_FULL_PACK, WEBSITE_SERVER
 
 from alasio.deploy.pack.decode_base import PackDecodeBase
 from alasio.deploy.pack.job import DeployJob
+from alasio.deploy.pack.job_rebuild import RebuildJob
 from alasio.deploy.pack.job_reset import ResetJob
 from alasio.deploy.pack.job_unpack import UnpackJob
 from alasio.ext import env
@@ -54,6 +55,18 @@ class TestDeployJob:
         assert isinstance(job, ResetJob)
         with logger.mock_capture_writer():
             assert job.run()
+        assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
+
+    def test_get_unfinished_job_rebuild(self, app_folder):
+        """A RBIL marker job file is a rebuild job."""
+        RebuildJob(WEBSITE_SERVER).write()
+        job = DeployJob.get_unfinished_job(WEBSITE_SERVER)
+        assert job is not None
+        assert isinstance(job, RebuildJob)
+        with logger.mock_capture_writer():
+            assert job.run()
+        for path, (content, _) in WEBSITE_FILES.items():
+            assert file_read_bytes(env.PROJECT_ROOT / path) == content, path
         assert not os.path.exists(env.PROJECT_ROOT / '.pack/workspace')
 
     def test_unpack_finishes_reset_job(self, app_folder):

@@ -193,7 +193,12 @@ class MockServerFile(ServerFile):
         # base_url/{new_version}/from_{old_version}.pack
         version, _, old = path.strip('/').partition('/from_')
         if old:
-            content = self.update_packs[(old[: -len('.pack')], version)]
+            content = self.update_packs.get((old[: -len('.pack')], version))
+            if content is None:
+                # an unregistered update pack, the incremental path
+                # is broken: DeployJob.update() falls back to
+                # RebuildJob on the 404
+                return httpx.Response(404, content=b'')
             return httpx.Response(200, content=content)
         # base_url/{version}/full.pack, served as a range request
         version = path.strip('/').partition('/')[0]
