@@ -156,15 +156,15 @@ def test_auto_create_table_on_execute(temp_db):
         assert c.fetchone() is not None
 
 
-def test_table_with_memory_db(user_table_memory):
+def test_table_with_memory_db(user_table):
     """Test table operations with in-memory database"""
-    assert user_table_memory.file == ':memory:'
+    assert user_table.file == ':memory:'
 
     # Should be able to perform operations
     user = User(id=0, name='Memory Test', age=30, email='memory@example.com')
-    user_table_memory.insert_row(user)
+    user_table.insert_row(user)
 
-    result = user_table_memory.select_one(name='Memory Test')
+    result = user_table.select_one(name='Memory Test')
     assert result is not None
     assert result.name == 'Memory Test'
 
