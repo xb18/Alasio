@@ -1,6 +1,7 @@
 from alasio.config_dev.gen.gen_config_generated import GenConfigGenerated
 from alasio.config_dev.gen.gen_config_index import GenConfigIndex
 from alasio.config_dev.gen.gen_queue_index import GenQueueIndex
+from alasio.config_dev.gen.gen_task_entry import GenTaskEntry
 from alasio.deploy.config.model import DeployModel
 from alasio.ext import env
 from alasio.ext.file.jsonfile import write_json_custom_indent
@@ -14,6 +15,7 @@ class IndexGenerator(
     GenConfigIndex,
     GenQueueIndex,
     GenConfigGenerated,
+    GenTaskEntry,
 ):
     """
     维护一个MOD下所有设置文件的数据一致性，生成json索引文件。
@@ -51,6 +53,10 @@ class IndexGenerator(
             logger.warning(f'ConfigGen root not exist: {self.root}')
         if not self.path_config.exists():
             logger.warning(f'ConfigGen path_config not exist: {self.path_config}')
+
+        # start task entry scan in background,
+        # result will be collected when generating task_entry.py at the end
+        self.start_task_entry_scan()
 
         self.build_group_mro()
 
@@ -99,6 +105,9 @@ class IndexGenerator(
 
         # config_generated.py
         self.generate_config_generated_file(gitadd=gitadd)
+
+        # task_entry.py
+        self.generate_task_entry_file(gitadd=gitadd)
 
         # generate alasio/config/alasio/group_export.py
         if not self.alasio:

@@ -32,6 +32,9 @@ class ModEntryInfo(Struct):
     asset_lang: Dict[str, None] = field(default_factory=lambda: dict.fromkeys(['cn', 'en']))
     # valid languages on GUI
     gui_language: Dict[str, None] = field(default_factory=lambda: dict.fromkeys(['zh-CN', 'en-US']))
+    # folders to scan for task entry functions, relative to mod root
+    # default to scan "module" and "tasks" folders
+    task_entry_folders: Dict[str, None] = field(default_factory=lambda: dict.fromkeys(['module', 'tasks']))
 
     def copy(self):
         """

@@ -14,7 +14,6 @@ from alasio.base.state import TaskState
 from alasio.base.timer import getnow
 from alasio.ext import env
 from alasio.ext.cache import cached_property
-from alasio.ext.inflect import Inflection
 from alasio.logger import logger
 from alasio.logger.error import ErrorZipWriter
 
@@ -120,11 +119,10 @@ class AlasioScheduler:
         Returns:
             bool: If run success
         """
-        name = Inflection.from_string(task).to_snake_case()
         try:
-            func = self.__getattribute__(name)
+            func = self.__getattribute__(task)
         except AttributeError:
-            logger.critical(f'Task function not defined: "{name}"')
+            logger.critical(f'Task function not defined: "{task}"')
             raise SchedulerError
         try:
             func()

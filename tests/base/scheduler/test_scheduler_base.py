@@ -263,14 +263,40 @@ class TestAlasioSchedulerRunTask:
         with pytest.raises(SchedulerError):
             scheduler._run_task("NonExistentTask")
 
+    def test_task_name_used_as_is(self, scheduler):
+        """_run_task uses the task name as the method name directly."""
+        _cache_config(scheduler)
+        _cache_device(scheduler)
+        scheduler.Reward = mock.MagicMock(return_value=None)
+        result = scheduler._run_task("Reward")
+        assert result is True
+        scheduler.Reward.assert_called_once()
+
+    def test_no_implicit_name_conversion(self, scheduler):
+        """_run_task does not convert task names to snake_case."""
+        _cache_config(scheduler)
+        _cache_device(scheduler)
+        scheduler.my_task = mock.MagicMock(return_value=None)
+        with pytest.raises(SchedulerError):
+            scheduler._run_task("MyTask")
+
+    def test_camel_case_restart_game(self, scheduler):
+        """CamelCase restart entry is hit by the task name directly."""
+        _cache_config(scheduler)
+        _cache_device(scheduler)
+        scheduler.RestartGame = mock.MagicMock(return_value=None)
+        result = scheduler._run_task("RestartGame")
+        assert result is True
+        scheduler.RestartGame.assert_called_once()
+
     def test_task_success(self, scheduler):
         """_run_task returns True when the task function succeeds."""
         _cache_config(scheduler)
         _cache_device(scheduler)
-        scheduler.my_task = mock.MagicMock(return_value=None)
+        scheduler.MyTask = mock.MagicMock(return_value=None)
         result = scheduler._run_task("MyTask")
         assert result is True
-        scheduler.my_task.assert_called_once()
+        scheduler.MyTask.assert_called_once()
 
     def test_task_raises_task_stop(self, scheduler):
         """_run_task returns True when the task function raises TaskStop."""
@@ -280,7 +306,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_task_stop():
             raise TaskStop("normal stop")
 
-        scheduler.my_task = _raise_task_stop
+        scheduler.MyTask = _raise_task_stop
         result = scheduler._run_task("MyTask")
         assert result is True
 
@@ -292,7 +318,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_game_not_running():
             raise GameNotRunningError("game is not running")
 
-        scheduler.my_task = _raise_game_not_running
+        scheduler.MyTask = _raise_game_not_running
 
         result = scheduler._run_task("MyTask")
         assert result is False
@@ -306,7 +332,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_emu_not_running():
             raise EmulatorNotRunningError("emu is not running")
 
-        scheduler.my_task = _raise_emu_not_running
+        scheduler.MyTask = _raise_emu_not_running
 
         result = scheduler._run_task("MyTask")
         assert result is False
@@ -320,7 +346,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_game_stuck():
             raise GameStuckError("game stuck")
 
-        scheduler.my_task = _raise_game_stuck
+        scheduler.MyTask = _raise_game_stuck
 
         with mock.patch.object(scheduler, "_save_error_log") as mock_save:
             with mock.patch("alasio.base.scheduler.scheduler.interruptable_sleep"):
@@ -337,7 +363,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_too_many_click():
             raise GameTooManyClickError("too many clicks")
 
-        scheduler.my_task = _raise_too_many_click
+        scheduler.MyTask = _raise_too_many_click
 
         with mock.patch.object(scheduler, "_save_error_log") as mock_save:
             with mock.patch("alasio.base.scheduler.scheduler.interruptable_sleep"):
@@ -354,7 +380,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_game_bug():
             raise GameBugError("game bug")
 
-        scheduler.my_task = _raise_game_bug
+        scheduler.MyTask = _raise_game_bug
 
         with mock.patch.object(scheduler, "_save_error_log") as mock_save:
             with mock.patch("alasio.base.scheduler.scheduler.interruptable_sleep"):
@@ -371,7 +397,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_page_unknown():
             raise GamePageUnknownError("unknown page")
 
-        scheduler.my_task = _raise_page_unknown
+        scheduler.MyTask = _raise_page_unknown
 
         with mock.patch.object(scheduler, "_save_error_log") as mock_save:
             with pytest.raises(SchedulerError):
@@ -386,7 +412,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_takeover():
             raise RequestHumanTakeover("user intervention required")
 
-        scheduler.my_task = _raise_takeover
+        scheduler.MyTask = _raise_takeover
 
         with pytest.raises(SchedulerError):
             scheduler._run_task("MyTask")
@@ -399,7 +425,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_script_error():
             raise ScriptError("developer mistake")
 
-        scheduler.my_task = _raise_script_error
+        scheduler.MyTask = _raise_script_error
 
         with pytest.raises(SchedulerError):
             scheduler._run_task("MyTask")
@@ -412,7 +438,7 @@ class TestAlasioSchedulerRunTask:
         def _raise_generic():
             raise RuntimeError("unexpected error")
 
-        scheduler.my_task = _raise_generic
+        scheduler.MyTask = _raise_generic
 
         with mock.patch.object(scheduler, "_save_error_log") as mock_save:
             with pytest.raises(SchedulerError):
@@ -962,11 +988,11 @@ class TestAlasioSchedulerTaskLoop:
         config.get_next_task.return_value = (pending, [], next_task)
 
         # Provide a task function
-        scheduler.main = mock.MagicMock(return_value=None)
+        scheduler.Main = mock.MagicMock(return_value=None)
 
         result = scheduler._task_loop()
         assert result is True
-        scheduler.main.assert_called_once()
+        scheduler.Main.assert_called_once()
         assert "Restart" not in scheduler.skip_first_tasks
 
     def test_task_loop_run_failure_handle_error_true(self, scheduler):
@@ -983,7 +1009,7 @@ class TestAlasioSchedulerTaskLoop:
         def _fail():
             raise GameNotRunningError("game not running")
 
-        scheduler.main = _fail
+        scheduler.Main = _fail
 
         result = scheduler._task_loop()
         assert result is True
@@ -1002,7 +1028,7 @@ class TestAlasioSchedulerTaskLoop:
         def _fail():
             raise GameNotRunningError("game not running")
 
-        scheduler.main = _fail
+        scheduler.Main = _fail
 
         with pytest.raises(SchedulerError):
             scheduler._task_loop()
@@ -1018,7 +1044,7 @@ class TestAlasioSchedulerTaskLoop:
         next_task = _make_task_item("Main", now)
         config.get_next_task.return_value = (pending, [], next_task)
 
-        scheduler.main = mock.MagicMock(return_value=None)
+        scheduler.Main = mock.MagicMock(return_value=None)
 
         with mock.patch.object(
             TaskRecord,
@@ -1039,7 +1065,7 @@ class TestAlasioSchedulerTaskLoop:
         next_task = _make_task_item("Main", now)
         config.get_next_task.return_value = (pending, [], next_task)
 
-        scheduler.main = mock.MagicMock(return_value=None)
+        scheduler.Main = mock.MagicMock(return_value=None)
 
         with mock.patch.object(
             TaskRecord,
