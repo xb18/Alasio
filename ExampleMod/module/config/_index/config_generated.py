@@ -13,8 +13,13 @@ if t.TYPE_CHECKING:
     from ..opsi import opsi_model as opsi
 
 
+# This file was auto-generated, do not modify it manually. To generate:
+# ``` python -m module.config.gen ```
+
 class ConfigGenerated(AlasioConfigBase):
-    # A generated config struct to fool IDE's type-predict and auto-complete
+    """
+    A generated config struct to fool IDE's type-predict and auto-complete
+    """
     entry = entry
 
     """

@@ -1,7 +1,7 @@
 from alasio.codegen.python import CodeGen
 from alasio.config_dev.gen.gen_cross import CrossNavGenerator
 from alasio.config_dev.parse.base import DefinitionError
-from alasio.config_dev.parse.parse_task_entry import TaskEntryParser
+from alasio.config_dev.parse.parse_task_entry import TaskEntryParser, TaskEntryInfo
 from alasio.ext.cache import cached_property
 from alasio.ext.concurrent.threadpool import THREAD_POOL
 from alasio.ext.path.atomic import atomic_read_text
@@ -66,7 +66,7 @@ class GenTaskEntry(CrossNavGenerator):
                 yield file
 
     @cached_property
-    def task_entry_data(self):
+    def task_entry_data(self) -> "dict[str, TaskEntryInfo]":
         """
         Wait for the scan job and return the result
 
@@ -85,16 +85,16 @@ class GenTaskEntry(CrossNavGenerator):
         """
         data = self.task_entry_data
         gen = CodeGen()
-        gen.Comment('This file was auto-generated, do not modify it manually.')
-        gen.Comment('Generated from @alasio_task() markers in MOD code.')
-        cls = gen.Class('TaskEntryGenerated')
-        with cls:
+        gen.FromImport('alasio.base.scheduler.scheduler').Import('AlasioScheduler')
+        gen.CommentCodeGen('module.config.gen')
+
+        with gen.Class('TaskEntryGenerated').set_inherit('AlasioScheduler'):
             gen.MultilineComment('Task entry functions, generated from @alasio_task() markers')
             if not data:
                 gen.Pass()
             for info in sorted(data.values(), key=lambda x: x.task):
                 with gen.Def(info.task).set_args('self'):
-                    gen.Raw(f'from {to_python_import(info.file)} import {info.cls}')
+                    gen.FromImport(to_python_import(info.file)).Import(info.cls)
                     gen.Raw(f'{info.cls}(config=self.config, device=self.device).{info.func}()')
         file = self.task_entry_file
         op = gen.write(file, skip_same=True)

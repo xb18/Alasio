@@ -1,7 +1,6 @@
 import time
 
-from module.config._index.task_entry import TaskEntryGenerated
-
+from ExampleMod.module.config._index.task_entry import TaskEntryGenerated
 from alasio.base.pretty import pretty_time
 from alasio.logger import logger
 
@@ -17,9 +16,6 @@ def raise_example_error():
 
 
 class Scheduler(TaskEntryGenerated):
-    def __init__(self, config_name):
-        self.config_name = config_name
-
     def run(self):
         logger.info('OMG it just run')
         logger.hr0('hr0')

@@ -69,13 +69,16 @@ class GenConfigGenerated(GenNavIndex):
                 # from .{nav} import {nav}_model as {nav}
                 gen.FromImport(f'..{config.folder}').Import(f'{nav_name}_model').as_(nav_name).lazy()
 
+        gen.Empty(2)
+        gen.CommentCodeGen('module.config.gen')
+
         # Class definition
         if self.alasio:
             cls = gen.Class('ConfigGenerated').set_inherit('AlasioConfigBase')
         else:
             cls = gen.Class('AlasioConfigGenerated')
         with cls:
-            gen.Comment('A generated config struct to fool IDE\'s type-predict and auto-complete')
+            gen.MultilineComment('A generated config struct to fool IDE\'s type-predict and auto-complete')
             if self.alasio:
                 gen.Raw('entry = entry')
             gen.Empty()

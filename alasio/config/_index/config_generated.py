@@ -5,8 +5,13 @@ if t.TYPE_CHECKING:
     from ..alasio import device_model as device
 
 
+# This file was auto-generated, do not modify it manually. To generate:
+# ``` python -m module.config.gen ```
+
 class AlasioConfigGenerated:
-    # A generated config struct to fool IDE's type-predict and auto-complete
+    """
+    A generated config struct to fool IDE's type-predict and auto-complete
+    """
 
     """
     ========== nav: device ==========
