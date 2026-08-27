@@ -2,7 +2,7 @@ from alasio.base.scheduler.scheduler import AlasioScheduler
 
 
 # This file was auto-generated, do not modify it manually. To generate:
-# ``` python -m module.config.gen ```
+# ``` python -m alasio.config_dev.gen_alasio ```
 
 class TaskEntryGenerated(AlasioScheduler):
     """

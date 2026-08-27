@@ -1,7 +1,7 @@
 from alasio.codegen.python import CodeGen
 from alasio.config_dev.gen.gen_cross import CrossNavGenerator
 from alasio.config_dev.parse.base import DefinitionError
-from alasio.config_dev.parse.parse_task_entry import TaskEntryParser, TaskEntryInfo
+from alasio.config_dev.parse.parse_task_entry import TaskEntryInfo, TaskEntryParser
 from alasio.ext.cache import cached_property
 from alasio.ext.concurrent.threadpool import THREAD_POOL
 from alasio.ext.path.atomic import atomic_read_text
@@ -86,7 +86,11 @@ class GenTaskEntry(CrossNavGenerator):
         data = self.task_entry_data
         gen = CodeGen()
         gen.FromImport('alasio.base.scheduler.scheduler').Import('AlasioScheduler')
-        gen.CommentCodeGen('module.config.gen')
+        # comment the codegen entry to regenerate this file
+        if self.alasio:
+            gen.CommentCodeGen('module.config.gen')
+        else:
+            gen.CommentCodeGen('alasio.config_dev.gen_alasio')
 
         with gen.Class('TaskEntryGenerated').set_inherit('AlasioScheduler'):
             gen.MultilineComment('Task entry functions, generated from @alasio_task() markers')

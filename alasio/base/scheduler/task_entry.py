@@ -18,6 +18,14 @@ def alasio_task(task_name):
             def run(self):
                 # actual implement
 
+        # multiple decorators on one method generate multiple task entries
+        # pointing to the same entry function
+        class OpsiCampaignRun:
+            @alasio_task('OpsiExplore')
+            @alasio_task('OpsiShop')
+            def opsi_run(self):
+                # actual implement
+
     Args:
         task_name (str): Task name in scheduler, must match ^[A-Z][a-zA-Z0-9]*$
 

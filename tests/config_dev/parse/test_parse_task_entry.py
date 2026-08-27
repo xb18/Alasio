@@ -84,6 +84,21 @@ class Shop:
             TaskEntryInfo(task='Shop', cls='Shop', func='run', file='module/reward/reward.py'),
         ]
 
+    def test_multiple_decorators_one_method(self):
+        """Multiple decorators on one method yield multiple entries to the same function."""
+        code = """
+class OpsiCampaignRun:
+    @alasio_task('OpsiExplore')
+    @alasio_task('OpsiShop')
+    def opsi_run(self):
+        ...
+"""
+        infos = iter_entry(code)
+        assert infos == [
+            TaskEntryInfo(task='OpsiExplore', cls='OpsiCampaignRun', func='opsi_run', file='module/reward/reward.py'),
+            TaskEntryInfo(task='OpsiShop', cls='OpsiCampaignRun', func='opsi_run', file='module/reward/reward.py'),
+        ]
+
     def test_no_marker_returns_empty(self):
         """A file without any marker yields nothing."""
         code = """

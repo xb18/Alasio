@@ -70,6 +70,9 @@ class TaskEntryParser:
 
         Fast check with regex first: if the code does not contain the
         @alasio_task marker at all, return directly without ast parse.
+        Multiple @alasio_task decorators on the same method are treated
+        as multiple tasks pointing to the same entry function, each decorator
+        yields one TaskEntryInfo.
 
         Yields:
             TaskEntryInfo:
@@ -83,7 +86,7 @@ class TaskEntryParser:
             for node in class_node.body:
                 # async method with marker is an error
                 if isinstance(node, ast.AsyncFunctionDef):
-                    if self._match_alasio_task(node) is not None:
+                    if self._match_alasio_tasks(node):
                         raise DefinitionError(
                             'Async task entry is not supported',
                             file=self.file,
@@ -91,31 +94,33 @@ class TaskEntryParser:
                     continue
                 if not isinstance(node, ast.FunctionDef):
                     continue
-                decorator = self._match_alasio_task(node)
-                if decorator is None:
+                decorators = self._match_alasio_tasks(node)
+                if not decorators:
                     continue
-                task_name = self._get_task_name(decorator)
                 self._check_method_args(node)
-                yield TaskEntryInfo(
-                    task=task_name,
-                    cls=class_node.name,
-                    func=node.name,
-                    file=self.file,
-                )
+                for decorator in decorators:
+                    task_name = self._get_task_name(decorator)
+                    yield TaskEntryInfo(
+                        task=task_name,
+                        cls=class_node.name,
+                        func=node.name,
+                        file=self.file,
+                    )
 
-    def _match_alasio_task(self, node):
+    def _match_alasio_tasks(self, node):
         """
-        Find the @alasio_task decorator in the decorator list of the method
+        Find all @alasio_task decorators in the decorator list of the method
 
         Args:
             node (ast.FunctionDef | ast.AsyncFunctionDef): The method node
 
         Returns:
-            ast.Call | None: The matched decorator call node, or None if no match
+            list[ast.Call]: All matched decorator call nodes
 
         Raises:
             DefinitionError: On bare @alasio_task without task_name argument
         """
+        matched = []
         for decorator in node.decorator_list:
             if isinstance(decorator, ast.Name):
                 if decorator.id == 'alasio_task':
@@ -123,8 +128,8 @@ class TaskEntryParser:
             elif isinstance(decorator, ast.Call):
                 func = decorator.func
                 if isinstance(func, ast.Name) and func.id == 'alasio_task':
-                    return decorator
-        return None
+                    matched.append(decorator)
+        return matched
 
     def _get_task_name(self, decorator):
         """

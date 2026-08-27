@@ -55,10 +55,13 @@ class Reward:
 
 # expected content of the generated task_entry.py with entries
 EXPECTED_WITH_ENTRIES = (
-    '# This file was auto-generated, do not modify it manually.\n'
-    '# Generated from @alasio_task() markers in MOD code.\n'
+    'from alasio.base.scheduler.scheduler import AlasioScheduler\n'
     '\n'
-    'class TaskEntryGenerated:\n'
+    '\n'
+    '# This file was auto-generated, do not modify it manually. To generate:\n'
+    '# ``` python -m module.config.gen ```\n'
+    '\n'
+    'class TaskEntryGenerated(AlasioScheduler):\n'
     '    """\n'
     '    Task entry functions, generated from @alasio_task() markers\n'
     '    """\n'
@@ -74,10 +77,13 @@ EXPECTED_WITH_ENTRIES = (
 
 # expected content of the generated task_entry.py with no entries
 EXPECTED_EMPTY = (
-    '# This file was auto-generated, do not modify it manually.\n'
-    '# Generated from @alasio_task() markers in MOD code.\n'
+    'from alasio.base.scheduler.scheduler import AlasioScheduler\n'
     '\n'
-    'class TaskEntryGenerated:\n'
+    '\n'
+    '# This file was auto-generated, do not modify it manually. To generate:\n'
+    '# ``` python -m module.config.gen ```\n'
+    '\n'
+    'class TaskEntryGenerated(AlasioScheduler):\n'
     '    """\n'
     '    Task entry functions, generated from @alasio_task() markers\n'
     '    """\n'
@@ -159,6 +165,35 @@ class Reward:
         gen = make_gen(fs)
         assert gen.scan_task_entry() == {}
 
+    def test_multiple_decorators_one_method(self, fs):
+        """Multiple decorators on one method generate multiple task entries."""
+        write_code(fs, 'module/reward.py', """
+class Reward:
+    @alasio_task('Reward')
+    @alasio_task('Shop')
+    def run(self):
+        ...
+""")
+        gen = make_gen(fs)
+        data = gen.scan_task_entry()
+        assert sorted(data) == ['Reward', 'Shop']
+        assert data['Reward'].func == 'run'
+        assert data['Shop'].func == 'run'
+
+    def test_duplicate_decorator_task_name_raises(self, fs):
+        """The same task name on multiple decorators of one method is a duplicate."""
+        write_code(fs, 'module/reward.py', """
+class Reward:
+    @alasio_task('Reward')
+    @alasio_task('Reward')
+    def run(self):
+        ...
+""")
+        gen = make_gen(fs)
+        with pytest.raises(DefinitionError) as e:
+            gen.scan_task_entry()
+        assert 'Duplicate task entry: "Reward"' in str(e.value)
+
 
 class TestStartScanBackground:
     """Tests for start_task_entry_scan() and task_entry_data."""
@@ -202,6 +237,61 @@ class Shop:
         gen.generate_task_entry_file()
         content = atomic_read_text(gen.task_entry_file)
         assert content == EXPECTED_WITH_ENTRIES
+
+    def test_generate_multiple_decorators(self, fs):
+        """Multiple decorators on one method generate one entry method per task."""
+        write_code(fs, 'module/reward.py', """
+class Reward:
+    @alasio_task('Reward')
+    @alasio_task('Shop')
+    def run(self):
+        ...
+""")
+        gen = make_gen(fs)
+        gen.start_task_entry_scan()
+        gen.generate_task_entry_file()
+        content = atomic_read_text(gen.task_entry_file)
+        assert content == (
+            'from alasio.base.scheduler.scheduler import AlasioScheduler\n'
+            '\n'
+            '\n'
+            '# This file was auto-generated, do not modify it manually. To generate:\n'
+            '# ``` python -m module.config.gen ```\n'
+            '\n'
+            'class TaskEntryGenerated(AlasioScheduler):\n'
+            '    """\n'
+            '    Task entry functions, generated from @alasio_task() markers\n'
+            '    """\n'
+            '\n'
+            '    def Reward(self):\n'
+            '        from module.reward import Reward\n'
+            '        Reward(config=self.config, device=self.device).run()\n'
+            '\n'
+            '    def Shop(self):\n'
+            '        from module.reward import Reward\n'
+            '        Reward(config=self.config, device=self.device).run()\n'
+        )
+
+    def test_generate_alasio_comment(self, fs):
+        """alasio itself is generated with the gen_alasio codegen entry comment."""
+        entry = ModEntryInfo.alasio()
+        gen = GenTaskEntry(entry)
+        gen.start_task_entry_scan()
+        gen.generate_task_entry_file()
+        content = atomic_read_text(gen.task_entry_file)
+        assert content == (
+            'from alasio.base.scheduler.scheduler import AlasioScheduler\n'
+            '\n'
+            '\n'
+            '# This file was auto-generated, do not modify it manually. To generate:\n'
+            '# ``` python -m alasio.config_dev.gen_alasio ```\n'
+            '\n'
+            'class TaskEntryGenerated(AlasioScheduler):\n'
+            '    """\n'
+            '    Task entry functions, generated from @alasio_task() markers\n'
+            '    """\n'
+            '    pass\n'
+        )
 
     def test_generate_empty(self, fs):
         """The file is still generated with an empty class when nothing is found."""
