@@ -92,7 +92,7 @@ class JwtManager:
         try:
             sub = data['sub']
         except KeyError:
-            raise jwt.PyJWTError('Missing iat') from None
+            raise jwt.PyJWTError('Missing sub') from None
 
         # check password
         if sub != self.pwd:
@@ -100,7 +100,7 @@ class JwtManager:
 
         # renew token
         now = time.time()
-        if iat - now > 3600 * self.renew_hours:
+        if now - iat > 3600 * self.renew_hours:
             return self.create()
         else:
             return ''
