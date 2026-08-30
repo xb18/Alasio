@@ -1,6 +1,5 @@
 import { redirect } from "@sveltejs/kit";
 import { authApi } from "$lib/api/auth";
-import { authState } from "$lib/auth/state.svelte";
 import type { LayoutLoad } from "./$types";
 
 export const load: LayoutLoad = async () => {
@@ -8,13 +7,11 @@ export const load: LayoutLoad = async () => {
     // User must have a valid token, otherwise redirect to login page
     const response = await authApi.renew.call();
     if (response.is(401) || response.is(403)) {
-      authState.loggedIn = false;
       throw redirect(307, `/auth`);
     }
 
     if (response.status === 200) {
       // success
-      authState.loggedIn = true;
       return { success: true, data: null };
     } else {
       // any captured error

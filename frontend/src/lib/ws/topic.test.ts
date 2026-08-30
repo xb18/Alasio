@@ -1,9 +1,9 @@
 import { effect_root } from "svelte/internal/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { flushEffects } from "$lib/test-utils/flush-effects";
 import { WebsocketManager } from "./client.svelte";
+import { routeState } from "./route-state.svelte";
 import { useTopic } from "./topic.svelte";
 
 vi.stubGlobal("WebSocket", FakeWebSocket);
@@ -24,9 +24,9 @@ describe("TestUseTopic", () => {
   beforeEach(() => {
     FakeWebSocket.reset();
     vi.clearAllMocks();
-    // useTopic -> sub -> connect: the logged-out guard would block the
-    // connection, so default to the logged-in state.
-    authState.loggedIn = true;
+    // useTopic -> sub -> connect: the public-route guard would block the
+    // connection, so default to a private (non-public) route.
+    routeState.public = false;
     client = new WebsocketManager();
   });
 

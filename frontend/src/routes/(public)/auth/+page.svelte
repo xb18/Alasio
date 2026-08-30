@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { authApi, type jwtError } from "$lib/api/auth";
-  import { authState } from "$lib/auth/state.svelte";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
   import { Help } from "$lib/components/ui/help/index.js";
@@ -30,7 +29,6 @@
 
       // Success cases: 200 or 204 redirect to home
       if (response.is(200) || response.is(204)) {
-        authState.loggedIn = true;
         goto("/");
         return;
       }

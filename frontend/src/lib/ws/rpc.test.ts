@@ -1,11 +1,11 @@
 import { toast } from "svelte-sonner";
 import { effect_root } from "svelte/internal/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { flushEffects } from "$lib/test-utils/flush-effects";
 import { websocketClient } from "./client.svelte";
 import type { RequestEvent } from "./event";
+import { routeState } from "./route-state.svelte";
 import { type Rpc, type RpcCallbacks, type RpcContext, createResilientRpc, createRpc } from "./rpc.svelte";
 
 // The rpc module shows error toasts through svelte-sonner; replace the
@@ -348,8 +348,8 @@ describe("TestCreateResilientRpc", () => {
       delete websocketClient.topics[key];
     }
     vi.clearAllMocks();
-    // The singleton ws client connects through the logged-out guard.
-    authState.loggedIn = true;
+    // The singleton ws client connects through the public-route guard.
+    routeState.public = false;
   });
 
   afterEach(async () => {

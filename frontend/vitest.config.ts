@@ -32,10 +32,19 @@ export default defineConfig({
     ),
   },
   resolve: {
+    // Component tests mount components with svelte's client-side mount()
+    // API; without the browser condition the "svelte" package resolves
+    // to the server build ("mount is not available on the server").
+    conditions: ["browser"],
     alias: {
-      // Same $lib alias the SvelteKit project config provides; vitest
-      // loads this config standalone so it must be declared here.
+      // Same aliases the svelte.config.js project config provides;
+      // vitest loads this config standalone so they must be declared
+      // here.
       $lib: fileURLToPath(new URL("./src/lib", import.meta.url)),
+      $src: fileURLToPath(new URL("./src", import.meta.url)),
+      $routes: fileURLToPath(new URL("./src/routes", import.meta.url)),
+      $public: fileURLToPath(new URL("./src/routes/(public)", import.meta.url)),
+      $private: fileURLToPath(new URL("./src/routes/(private)", import.meta.url)),
       "$app/environment": fileURLToPath(new URL("./src/lib/test-utils/app-environment.ts", import.meta.url)),
       "$app/navigation": fileURLToPath(new URL("./src/lib/test-utils/app-navigation.ts", import.meta.url)),
     },

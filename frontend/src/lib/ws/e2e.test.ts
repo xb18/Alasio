@@ -6,7 +6,6 @@ import { isAbsolute, join } from "node:path";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { authState } from "$lib/auth/state.svelte";
 import { WebsocketManager } from "./client.svelte";
 import type { RequestEvent } from "./event";
 import { createRpc } from "./rpc.svelte";
@@ -289,9 +288,6 @@ describeE2e("TestBackendE2e", () => {
     client = new TestClient(`ws://127.0.0.1:${port}/api/ws`);
     expect(backendToken).toMatch(/^[0-9a-f]{64}$/);
     vi.stubGlobal("WebSocket", HeaderedWebSocket);
-    // The connect guard skips unauthenticated connections; the e2e
-    // client authenticates through the injected electron token header.
-    authState.loggedIn = true;
     client.connect();
     await waitFor(() => client.connectionState === "open", 15_000, "connection open");
   });

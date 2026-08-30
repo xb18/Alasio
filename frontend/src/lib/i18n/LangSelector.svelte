@@ -7,6 +7,7 @@
   import type { ConfigLang, Lang } from "$lib/i18n/state.svelte";
   import { cn } from "$lib/utils";
   import { useTopic } from "$lib/ws";
+  import { routeState } from "$lib/ws/route-state.svelte";
   import { SUPPORTED_LANGS } from "$src/i18ngen/constants";
 
   type Props = {
@@ -39,6 +40,11 @@
 
   let open = $state(false);
   $effect(() => {
+    // Public pages have no websocket connection: calling set_lang there
+    // would queue forever and surface an RPC timeout toast. The language
+    // choice is already persisted in the alasio_lang cookie, and the
+    // private session's own LangSelector instance syncs it on mount.
+    if (routeState.public) return;
     rpc.call("set_lang", { lang: i18nState.l });
   });
   function selectLanguage(lang: ConfigLang) {

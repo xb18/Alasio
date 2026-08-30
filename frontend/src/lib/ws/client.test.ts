@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { goto, invalidateAll } from "$app/navigation";
-import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { WebsocketManager } from "./client.svelte";
+import { routeState } from "./route-state.svelte";
 
 // The product code uses the global WebSocket constructor; tests drive
 // the "server" side through the FakeWebSocket helpers.
@@ -97,44 +97,44 @@ describe("TestConnect", () => {
   });
 });
 
-describe("TestConnectWhenLoggedOut", () => {
-  it("does not create a websocket while logged out", () => {
-    authState.loggedIn = false;
+describe("TestConnectWhenPublicRoute", () => {
+  it("does not create a websocket while a public route is mounted", () => {
+    routeState.public = true;
     const client = new WebsocketManager();
     client.connect();
     expect(FakeWebSocket.instances).toHaveLength(0);
     expect(client.connectionState).toBe("closed");
   });
 
-  it("connects on a later call once logged in", () => {
-    authState.loggedIn = false;
+  it("connects on a later call once the public route is gone", () => {
+    routeState.public = true;
     const client = new WebsocketManager();
     client.connect();
     expect(FakeWebSocket.instances).toHaveLength(0);
 
-    authState.loggedIn = true;
+    routeState.public = false;
     client.connect();
     expect(FakeWebSocket.instances).toHaveLength(1);
     FakeWebSocket.last!.serverOpen();
     expect(client.connectionState).toBe("open");
   });
 
-  it("subscribing while logged out stays disconnected", () => {
-    authState.loggedIn = false;
+  it("subscribing while a public route is mounted stays disconnected", () => {
+    routeState.public = true;
     const client = new WebsocketManager();
     client.sub("ConfigScan");
     expect(FakeWebSocket.instances).toHaveLength(0);
     expect(client.subscriptions).toEqual({ ConfigScan: 1 });
   });
 
-  it("cancels a scheduled reconnect while logged out", () => {
+  it("cancels a scheduled reconnect while a public route is mounted", () => {
     const client = new WebsocketManager();
     client.connect();
     FakeWebSocket.last!.serverOpen();
     // A dropped connection schedules a reconnect in 1s.
     FakeWebSocket.last!.serverClose(1006);
 
-    authState.loggedIn = false;
+    routeState.public = true;
     vi.advanceTimersByTime(1000);
     expect(FakeWebSocket.instances).toHaveLength(1);
 
@@ -143,7 +143,7 @@ describe("TestConnectWhenLoggedOut", () => {
     expect(FakeWebSocket.instances).toHaveLength(1);
   });
 
-  it("clears the retry budget while logged out so a later login gets a fresh budget", () => {
+  it("clears the retry budget while a public route is mounted so the next private session gets a fresh budget", () => {
     const client = new WebsocketManager();
     client.connect();
     FakeWebSocket.last!.serverOpen();
@@ -157,14 +157,111 @@ describe("TestConnectWhenLoggedOut", () => {
     expect(invalidateAll).toHaveBeenCalledTimes(1);
     expect(FakeWebSocket.instances).toHaveLength(6);
 
-    // Logged-out connects reset the budget; a logged-in connect succeeds.
-    authState.loggedIn = false;
+    // Connecting on a public route resets the budget; once the private
+    // session mounts, a logged-in connect succeeds.
+    routeState.public = true;
     client.connect();
-    authState.loggedIn = true;
+    routeState.public = false;
     client.connect();
     expect(FakeWebSocket.instances).toHaveLength(7);
     FakeWebSocket.last!.serverOpen();
     expect(client.connectionState).toBe("open");
+  });
+});
+
+describe("TestDisconnect", () => {
+  it("closes the live connection and clears all state", () => {
+    const client = new WebsocketManager();
+    client.connect();
+    const ws = FakeWebSocket.last!;
+    ws.serverOpen();
+    client.sub("ConfigScan");
+    FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConfigScan", o: "full", v: ["a"] }));
+
+    client.disconnect();
+
+    expect(client.connectionState).toBe("closed");
+    expect(client.topics).toEqual({});
+    expect(client.topicReady).toEqual({});
+    expect(client.subscriptions).toEqual({});
+    // All callbacks are detached so the teardown cannot fire reconnect
+    // or error handling.
+    expect(ws.onopen).toBeNull();
+    expect(ws.onmessage).toBeNull();
+    expect(ws.onerror).toBeNull();
+    expect(ws.onclose).toBeNull();
+    // The intentional close must not fire the onclose reconnect path.
+    vi.advanceTimersByTime(30_000);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  it("detaches callbacks when closing a pending connection", () => {
+    const client = new WebsocketManager();
+    client.connect();
+    const ws = FakeWebSocket.last!;
+    const onErrorSpy = vi.fn();
+    ws.onerror = onErrorSpy;
+
+    // The handshake never completed (still CONNECTING): the teardown
+    // must detach the error handler before closing, mirroring the real
+    // browser behavior where closing a pending socket fires onerror.
+    client.disconnect();
+
+    expect(ws.onerror).toBeNull();
+    expect(ws.onclose).toBeNull();
+    expect(onErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when nothing is connected", () => {
+    const client = new WebsocketManager();
+    client.disconnect();
+    expect(client.connectionState).toBe("closed");
+    expect(FakeWebSocket.instances).toHaveLength(0);
+  });
+
+  it("drops queued messages on disconnect", () => {
+    const client = new WebsocketManager();
+    // On a public page messages queue up without a connection.
+    routeState.public = true;
+    client.sendRaw({ t: "ConfigScan" });
+    expect(FakeWebSocket.instances).toHaveLength(0);
+
+    client.disconnect();
+
+    // Leaving the public route: the next connection must not replay the
+    // stale queued message.
+    routeState.public = false;
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    expect(FakeWebSocket.last!.sent).toHaveLength(0);
+  });
+
+  it("drops pending rpc callbacks on disconnect", () => {
+    const client = new WebsocketManager();
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    client.sendRaw({ t: "ConnState", o: "rpc", f: "set_lang", v: { lang: "en-US" }, i: "rpc-1" });
+    client.registerRpcCall("rpc-1", { onSuccess: vi.fn(), onError: vi.fn() });
+
+    client.disconnect();
+
+    expect(client.hasRpcCall("rpc-1")).toBe(false);
+  });
+
+  it("clears buffered scroll updates and cancels their flush", () => {
+    const client = new WebsocketManager();
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    client.sub("Log");
+    // Buffer an add event (scroll topics flush on the next frame).
+    FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "Log", o: "add", v: { line: 1 } }));
+
+    client.disconnect();
+
+    // The buffer is dropped and the scheduled flush never applies it.
+    expect(client.topics.Log).toBeUndefined();
+    vi.advanceTimersByTime(100);
+    expect(client.topics.Log).toBeUndefined();
   });
 });
 
@@ -674,7 +771,6 @@ describe("TestReconnect", () => {
 
     FakeWebSocket.last!.serverClose(4001);
     expect(goto).toHaveBeenCalledWith("/auth");
-    expect(authState.loggedIn).toBe(false);
     expect(client.topics).toEqual({});
     expect(client.topicReady).toEqual({});
   });
@@ -768,9 +864,10 @@ beforeEach(() => {
   });
   FakeWebSocket.reset();
   vi.clearAllMocks();
-  // Most tests drive the connection machinery directly; default to the
-  // logged-in state, tests for the logged-out guard override it.
-  authState.loggedIn = true;
+  // Most tests drive the connection machinery directly; default to a
+  // private (non-public) route, tests for the public-route guard
+  // override it.
+  routeState.public = false;
 });
 
 afterEach(() => {

@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { WebsocketManager } from "./client.svelte";
 import type { RequestEvent, ResponseEvent } from "./event";
+import { routeState } from "./route-state.svelte";
 
 // The ws framework imports svelte-sonner for rpc toasts; the contract
 // test only exercises the protocol layer.
@@ -25,9 +25,9 @@ const fixtures = JSON.parse(readFileSync((import.meta.env as Record<string, stri
 };
 
 beforeEach(() => {
-  // The connect guard skips unauthenticated connections; these tests
-  // drive the connection machinery directly.
-  authState.loggedIn = true;
+  // The connect guard skips connections while a public route is
+  // mounted; these tests drive the connection machinery directly.
+  routeState.public = false;
 });
 
 describe("TestRequestEventContract", () => {

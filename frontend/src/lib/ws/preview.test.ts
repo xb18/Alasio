@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { PreviewManager } from "./preview.svelte";
+import { routeState } from "./route-state.svelte";
 
 vi.stubGlobal("WebSocket", FakeWebSocket);
 
@@ -28,9 +28,9 @@ describe("TestPreviewManager", () => {
   beforeEach(() => {
     FakeWebSocket.reset();
     vi.clearAllMocks();
-    // PreviewManager inherits the logged-out connect guard; the tests
+    // PreviewManager inherits the public-route connect guard; the tests
     // below drive the connection machinery directly.
-    authState.loggedIn = true;
+    routeState.public = false;
   });
 
   afterEach(() => {

@@ -1,9 +1,9 @@
 import { browser } from "$app/environment";
 import { goto, invalidateAll } from "$app/navigation";
-import { authState } from "$lib/auth/state.svelte";
 import { deepDel, deepSet } from "./deep";
 import type { RequestEvent, ResponseEvent } from "./event";
 import { RenewalCoordinator } from "./renewal.svelte";
+import { routeState } from "./route-state.svelte";
 import { type RpcCallbacks, type RpcOptions, createRpc } from "./rpc.svelte";
 
 /**
@@ -86,15 +86,16 @@ export class WebsocketManager {
    * Initiates a WebSocket connection if one is not already open or connecting.
    */
   connect() {
-    // Never connect while logged out: the backend accepts the handshake
-    // then closes it with 4001 (a refused handshake would only surface as
-    // 1006 to the browser), so an unauthenticated connection is a
-    // guaranteed failure plus an auth-failure redirect. The login page
-    // and the (private) layout load maintain authState.loggedIn; once a
-    // component subscribes after login, this method runs again with the
-    // flag set and the connection is established.
-    if (!authState.loggedIn) {
-      // Drop any scheduled reconnect: retrying while logged out is
+    // Never connect while a (public) route is mounted: the backend
+    // accepts the handshake then closes it with 4001 (a refused handshake
+    // would only surface as 1006 to the browser), so an unauthenticated
+    // connection is a guaranteed failure plus an auth-failure redirect.
+    // The (public) layout owns routeState.public; once a private page
+    // mounts its components subscribe after the layout destroy hook
+    // cleared the flag, and this method runs again to establish the
+    // connection.
+    if (routeState.public) {
+      // Drop any scheduled reconnect: retrying on a public page is
       // pointless and would burn the retry budget into invalidateAll().
       if (this.#reconnectTimeout !== undefined) {
         clearTimeout(this.#reconnectTimeout);
@@ -157,7 +158,6 @@ export class WebsocketManager {
         // Custom code for Authentication failure
         console.error("Authentication failed. Redirecting to login via goto().");
         this.#clearAll();
-        authState.loggedIn = false;
         goto("/auth");
         return;
       }
@@ -190,6 +190,55 @@ export class WebsocketManager {
     this.#ws.onerror = (error) => {
       console.error("WebSocket error:", error);
     };
+  }
+
+  /**
+   * Intentionally closes the current websocket connection and resets all
+   * client state (topics, subscriptions, queued messages, rpc callbacks,
+   * scroll buffers). Called when a (public) route mounts: public pages
+   * must not hold a connection, and stale data must not leak into the
+   * next private session.
+   */
+  disconnect() {
+    // Cancel any pending reconnect and reset the retry budget.
+    if (this.#reconnectTimeout !== undefined) {
+      clearTimeout(this.#reconnectTimeout);
+      this.#reconnectTimeout = undefined;
+    }
+    this.#reconnectAttempts = 0;
+
+    // Close the live connection without triggering the onclose reconnect
+    // path: this is an intentional teardown, not a dropped connection.
+    // All callbacks are detached so a close while the handshake is still
+    // pending (CONNECTING) cannot fire onerror / onclose logs either.
+    const ws = this.#ws;
+    this.#ws = null;
+    if (ws) {
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onclose = null;
+      try {
+        ws.close();
+      } catch (e) {
+        console.error("Failed to close WebSocket:", e);
+      }
+    }
+
+    // Reset all data state.
+    this.#clearAll();
+    for (const topic in this.subscriptions) {
+      delete this.subscriptions[topic];
+    }
+    this.#messageQueue = [];
+    this.#rpcCallbacks.clear();
+    if (this.#flushHandle !== null) {
+      cancelAnimationFrame(this.#flushHandle);
+      clearTimeout(this.#flushHandle);
+      this.#flushHandle = null;
+    }
+    this.#pendingScrollUpdates.clear();
+    this.connectionState = "closed";
   }
 
   /**
