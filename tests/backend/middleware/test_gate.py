@@ -26,7 +26,7 @@ class CaptureApp:
         await send({'type': 'http.response.body', 'body': b''})
 
 
-def make_scope(scope_type, path='/api/test', host='127.0.0.1', headers=None):
+def make_scope(scope_type, path='/api/test', host='127.0.0.1', headers=None, scheme='http', query_string=b''):
     """
     Build a minimal ASGI scope.
 
@@ -35,6 +35,8 @@ def make_scope(scope_type, path='/api/test', host='127.0.0.1', headers=None):
         path (str):
         host (str): The TCP peer address
         headers (list): Raw header pairs
+        scheme (str): 'http', 'https', 'ws' or 'wss'
+        query_string (bytes):
 
     Returns:
         Scope:
@@ -45,8 +47,8 @@ def make_scope(scope_type, path='/api/test', host='127.0.0.1', headers=None):
         'path': path,
         'headers': headers or [],
         'client': (host, 12345),
-        'query_string': b'',
-        'scheme': 'http',
+        'query_string': query_string,
+        'scheme': scheme,
         'server': ('127.0.0.1', 22267),
     }
 
@@ -107,6 +109,24 @@ def ws_closed(sent):
     for message in sent:
         if message['type'] == 'websocket.close':
             return message['code']
+    return None
+
+
+def redirect_of(sent):
+    """
+    Extract the redirect (http or websocket denial response) from the
+    sent messages.
+
+    Args:
+        sent (list): Messages sent by the middleware
+
+    Returns:
+        tuple[int, dict] | None: (status, header dict) when a redirect
+            response was sent, or None otherwise
+    """
+    for message in sent:
+        if message['type'] in ('http.response.start', 'websocket.http.response.start'):
+            return message['status'], dict(message.get('headers') or [])
     return None
 
 
@@ -242,7 +262,9 @@ class TestRuleB:
     async def test_public_mode_skips_source_check(self, gate, monkeypatch):
         set_password(monkeypatch)
         mw, app = gate(ssl=True)
-        await call_gate(mw, make_http_scope(path=self.PATH, host='8.8.8.8'))
+        # public mode only serves https; plaintext is redirected by
+        # rule C before the source check would run
+        await call_gate(mw, make_http_scope(path=self.PATH, host='8.8.8.8', scheme='https'))
         assert app.called
 
     @pytest.mark.trio
@@ -297,6 +319,95 @@ class TestLoginLayer:
         sent = await call_gate(mw, make_ws_scope())
         assert ws_closed(sent) is None
         assert app.called
+
+
+class TestRuleC:
+    """Rule C (SSL enforcement): public mode never serves plaintext."""
+
+    @pytest.mark.trio
+    async def test_http_plaintext_redirected_308(self, gate):
+        # no host header: falls back to the server address (with port)
+        mw, app = gate(ssl=True)
+        sent = await call_gate(mw, make_http_scope(scheme='http'))
+        status_code, headers = redirect_of(sent)
+        assert status_code == 308
+        assert headers[b'location'] == b'https://127.0.0.1:22267/api/test'
+        assert not app.called
+
+    @pytest.mark.trio
+    async def test_ws_plaintext_redirected_307(self, gate):
+        # websocket denial response: the browser re-handshakes over wss
+        mw, app = gate(ssl=True)
+        sent = await call_gate(mw, make_ws_scope(scheme='ws'))
+        status_code, headers = redirect_of(sent)
+        assert status_code == 307
+        assert headers[b'location'] == b'wss://127.0.0.1:22267/api/test'
+        assert not app.called
+
+    @pytest.mark.trio
+    async def test_redirect_keeps_host_port_and_query(self, gate):
+        mw, app = gate(ssl=True)
+        sent = await call_gate(mw, make_http_scope(
+            scheme='http',
+            query_string=b'x=1&y=2',
+            headers=[(b'host', b'example.com:22267')],
+        ))
+        status_code, headers = redirect_of(sent)
+        assert status_code == 308
+        assert headers[b'location'] == b'https://example.com:22267/api/test?x=1&y=2'
+        assert not app.called
+
+    @pytest.mark.trio
+    async def test_redirect_refused_when_host_malformed(self, gate):
+        # a malformed host header cannot build a redirect target: 400
+        mw, app = gate(ssl=True)
+        sent = await call_gate(mw, make_http_scope(
+            scheme='http',
+            headers=[(b'host', b'[bad')],
+        ))
+        assert status_of(sent) == 400
+        assert not app.called
+
+    @pytest.mark.trio
+    async def test_https_passes_with_hsts(self, gate, monkeypatch):
+        set_password(monkeypatch)
+        mw, app = gate(ssl=True)
+        # /api/auth/renew is exempt from the login layer: only the
+        # scheme enforcement + admission rules run
+        sent = await call_gate(mw, make_http_scope(scheme='https', path='/api/auth/renew'))
+        assert status_of(sent) == 200
+        assert app.called
+        status_code, headers = redirect_of(sent)
+        assert headers[b'strict-transport-security'] == b'max-age=31536000'
+
+    @pytest.mark.trio
+    async def test_wss_passes(self, gate, monkeypatch):
+        set_password(monkeypatch)
+        mw, app = gate(ssl=True)
+        sent = await call_gate(mw, make_ws_scope(scheme='wss'))
+        assert ws_closed(sent) is None
+        assert app.called
+
+    @pytest.mark.trio
+    async def test_hsts_not_added_to_plaintext_redirect(self, gate):
+        # HSTS only appears on https responses (browsers ignore it on
+        # plaintext responses anyway)
+        mw, app = gate(ssl=True)
+        sent = await call_gate(mw, make_http_scope(scheme='http'))
+        status_code, headers = redirect_of(sent)
+        assert status_code == 308
+        assert b'strict-transport-security' not in headers
+
+    @pytest.mark.trio
+    async def test_plaintext_allowed_in_lan_mode(self, gate, monkeypatch):
+        # no SSL configured: http/ws keep working, no redirect, no HSTS
+        set_password(monkeypatch)
+        mw, app = gate(ssl=False)
+        sent = await call_gate(mw, make_http_scope(scheme='http', path='/api/auth/renew'))
+        assert status_of(sent) == 200
+        assert app.called
+        status_code, headers = redirect_of(sent)
+        assert b'strict-transport-security' not in headers
 
 
 class TestRuleOrder:

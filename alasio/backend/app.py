@@ -331,10 +331,13 @@ def create_config(args=None):
 
     # SSL wiring: when both key and cert are configured the deployment
     # auto-enters public mode (DeploymentGateMiddleware mode detection)
-    # and https is served
+    # and https is served. Note the field names: hypercorn Config uses
+    # `keyfile` / `certfile` (not the uvicorn-style `ssl_keyfile` /
+    # `ssl_certfile`), assigning the wrong names would silently create
+    # plain instance attributes and leave the port plaintext.
     if deploy.Backend.WebuiSSLKey and deploy.Backend.WebuiSSLCert:
-        config.ssl_keyfile = deploy.Backend.WebuiSSLKey
-        config.ssl_certfile = deploy.Backend.WebuiSSLCert
+        config.keyfile = deploy.Backend.WebuiSSLKey
+        config.certfile = deploy.Backend.WebuiSSLCert
 
     # To enable assess log
     # config.accesslog = '-'

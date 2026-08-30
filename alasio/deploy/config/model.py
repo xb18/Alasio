@@ -181,6 +181,8 @@ class BackendConfig(Struct):
     Port: Annotated[int, Meta(extra={"help": [
         "--port. Port to listen",
         "You will be able to access webui via `http://{host}:{port}`",
+        "When SSL is configured (WebuiSSLKey + WebuiSSLCert) the same",
+        "port serves https only: use `https://{host}:{port}`",
         "[In most cases] Default to 22267",
     ]})] = 22267
     # frontend language and theme is store on client, not backend

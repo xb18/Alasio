@@ -45,11 +45,15 @@ class JwtManager:
         """
         return AlasioKeyTable('gui').jwt_secret
 
+    @cached_property
     def _sub(self):
         """
         JWT subject: never the plaintext password (the payload is base64
         readable, e.g. in DevTools). '' when no password is configured,
         otherwise a versioned sha256 digest of the password.
+
+        Cached: derived from the cached `pwd`, so it follows the same
+        restart-to-apply semantics.
 
         Returns:
             str:
@@ -69,7 +73,7 @@ class JwtManager:
         # create
         now = int(time.time())
         exp = now + 3600 * self.expire_hours
-        data = {'sub': self._sub(), 'iat': now, 'exp': exp}
+        data = {'sub': self._sub, 'iat': now, 'exp': exp}
         token = jwt.encode(data, secret, algorithm=self.algorithm)
         return token
 
@@ -122,7 +126,7 @@ class JwtManager:
             raise jwt.PyJWTError('Missing sub') from None
 
         # check password
-        if sub != self._sub():
+        if sub != self._sub:
             raise jwt.PyJWTError('Password incorrect')
 
         # renew token

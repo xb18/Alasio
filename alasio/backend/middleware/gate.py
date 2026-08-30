@@ -2,9 +2,19 @@ import ipaddress
 
 import jwt
 from starlette import status
-from starlette.responses import Response
+from starlette.datastructures import URL
+from starlette.responses import RedirectResponse, Response
 
+from alasio.ext.cache import cached_property
 from alasio.ext.starapi.param import error_detail
+
+# Rule C: when SSL is configured, plaintext schemes are upgraded to
+# their TLS counterparts and never reach the business logic.
+_REDIRECT_SCHEMES = {'http': 'https', 'ws': 'wss'}
+
+# HSTS value injected into https responses. One year, no
+# includeSubDomains (subdomains may host non-https services).
+_HSTS_VALUE = b'max-age=31536000'
 
 # LAN source whitelist (rule B). Explicit network objects instead of the
 # ipaddress `is_private` / `is_ula` convenience flags: their exact
@@ -58,8 +68,19 @@ class DeploymentGateMiddleware:
     Global admission + login middleware covering both http and
     websocket scopes.
 
-    The middleware merges three layers that must always run together,
+    The middleware merges four layers that must always run together,
     in this fixed order (they must never be split or reordered):
+
+    0. Rule C (SSL enforcement): when SSL is configured (public mode),
+       every plaintext connection (http/ws) is upgraded to https/wss
+       with a redirect and never reaches the business logic. It runs
+       before everything else, so no rule below can ever serve
+       business over plaintext. The TCP layer already rejects plaintext
+       (hypercorn serves the port TLS-only when ssl is configured);
+       this rule is the application-layer enforcement for any plaintext
+       that does reach the app, and the HSTS header it injects into
+       https responses makes the browser upgrade http itself after the
+       first https visit.
 
     1. Rule A (no password → refuse all web access): when the password
        is empty, only requests carrying a valid electron token
@@ -81,12 +102,13 @@ class DeploymentGateMiddleware:
        after accept (a refused handshake only surfaces as 1006 to the
        browser, the frontend cannot read the close code).
 
-    The order matters: rule A runs before the login layer, so without a
-    password the rejection is a 403 from rule A (never a 401), and the
-    login layer's no-password leniency (validate_token issues a fresh
-    token when no password is configured) is only reachable behind rule
-    A — the merged middleware makes this ordering structural instead of
-    depending on add_middleware order.
+    The order matters: rule C runs first, then rule A before the login
+    layer, so without a password the rejection is a 403 from rule A
+    (never a 401), and the login layer's no-password leniency
+    (validate_token issues a fresh token when no password is
+    configured) is only reachable behind rule A — the merged middleware
+    makes this ordering structural instead of depending on
+    add_middleware order.
 
     Mode detection: both WebuiSSLCert and WebuiSSLKey configured → public;
     otherwise → lan. The two modes behave identically except SSL.
@@ -120,20 +142,30 @@ class DeploymentGateMiddleware:
         from alasio.deploy.config.model import DeployConfig
         return DeployConfig().config.data
 
+    @cached_property
     def _is_public(self):
         """
         Returns:
             bool: True when SSL is configured (public mode)
+
+        Cached: the deploy config is read once per middleware instance;
+        changing the SSL settings requires a backend restart to take
+        effect.
         """
         backend = self._deploy_data().Backend
         return bool(backend.WebuiSSLCert and backend.WebuiSSLKey)
 
+    @cached_property
     def _has_password(self):
         """
         Returns:
             bool: True when a password is configured
+
+        Cached: mirrors JwtManager.pwd (itself cached), so changing the
+        password requires a backend restart to take effect.
         """
         from alasio.backend.auth.auth import JWT_MANAGER
+
         return bool(JWT_MANAGER.pwd)
 
     def _has_electron_token(self, scope):
@@ -162,6 +194,86 @@ class DeploymentGateMiddleware:
             return host if isinstance(host, str) else str(host)
         return ''
 
+    def _is_plaintext(self, scope):
+        """
+        Args:
+            scope (Scope):
+
+        Returns:
+            bool: True when the connection arrived without TLS
+        """
+        return scope.get('scheme') in _REDIRECT_SCHEMES
+
+    def _redirect_url(self, scope):
+        """
+        Build the https/wss url that mirrors the current plaintext
+        request, keeping the host header (with port), path and query.
+
+        Args:
+            scope (Scope):
+
+        Returns:
+            str | None: The redirect target, or None when the host
+                cannot be determined (missing or malformed host header
+                and no usable server address)
+        """
+        try:
+            url = URL(scope=scope)
+            return str(url.replace(scheme=_REDIRECT_SCHEMES[url.scheme]))
+        except (KeyError, ValueError):
+            return None
+
+    async def _redirect_plaintext(self, scope, receive, send):
+        """
+        Upgrade a plaintext connection in public mode: 308 for http
+        (permanent, cached by the browser), 307 for websocket (the
+        browser re-handshakes over wss after the redirect). When the
+        redirect target cannot be determined the connection is refused
+        with 400 instead.
+
+        Args:
+            scope (Scope):
+            receive (Receive):
+            send (Send):
+        """
+        url = self._redirect_url(scope)
+        if url is None:
+            response = Response(status_code=status.HTTP_400_BAD_REQUEST)
+            await response(scope, receive, send)
+            return
+        if scope['type'] == 'http':
+            status_code = status.HTTP_308_PERMANENT_REDIRECT
+        else:
+            status_code = status.HTTP_307_TEMPORARY_REDIRECT
+        response = RedirectResponse(url, status_code=status_code)
+        await response(scope, receive, send)
+
+    @staticmethod
+    def _with_hsts(send):
+        """
+        Wrap `send` to inject the Strict-Transport-Security header into
+        every http response (only reachable over https, see __call__).
+
+        Args:
+            send (Send):
+
+        Returns:
+            Send: The wrapped send callable
+        """
+
+        async def wrapped(message):
+            if message['type'] == 'http.response.start':
+                message = dict(message)
+                headers = list(message.get('headers') or [])
+                if not any(
+                    name.lower() == b'strict-transport-security' for name, _ in headers
+                ):
+                    headers.append((b'strict-transport-security', _HSTS_VALUE))
+                message['headers'] = headers
+            await send(message)
+
+        return wrapped
+
     def _check(self, scope):
         """
         Apply rule A then rule B.
@@ -174,10 +286,10 @@ class DeploymentGateMiddleware:
                 ('', {}) when allowed
         """
         # Rule A: no password → only electron token passes
-        if not self._has_password() and not self._has_electron_token(scope):
+        if not self._has_password and not self._has_electron_token(scope):
             return 'DEPLOY_PASSWORD_NOT_SET', {}
         # Rule B: lan mode → source check
-        if not self._is_public():
+        if not self._is_public:
             host = self._client_host(scope)
             if not _is_lan_source(host):
                 # never expose the rejected source to the client
@@ -271,6 +383,16 @@ class DeploymentGateMiddleware:
         if scope['type'] not in ('http', 'websocket'):
             await self.app(scope, receive, send)
             return
+
+        # Rule C (SSL enforcement): public mode never serves plaintext.
+        # Plaintext connections are upgraded to https/wss, secure
+        # responses get the HSTS header so the browser upgrades http
+        # itself on subsequent visits.
+        if self._is_public:
+            if self._is_plaintext(scope):
+                await self._redirect_plaintext(scope, receive, send)
+                return
+            send = self._with_hsts(send)
 
         path = scope.get('path', '')
         if not (path.startswith('/api') or path == '/api'):

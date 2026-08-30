@@ -138,14 +138,14 @@ class TestSub:
         self.jwt.pwd = PASSWORD
 
     def test_sub_is_versioned_sha256(self):
-        assert self.jwt._sub() == SUB
+        assert self.jwt._sub == SUB
 
     def test_sub_empty_when_no_password(self):
         self.jwt.pwd = ''
-        assert self.jwt._sub() == ''
+        assert self.jwt._sub == ''
 
     def test_sub_stable_across_calls(self):
-        assert self.jwt._sub() == self.jwt._sub()
+        assert self.jwt._sub == self.jwt._sub
 
 
 class TestValidatePwd:
