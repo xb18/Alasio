@@ -193,3 +193,49 @@ class TestSpaPageServer:
         resp = await app.get_response('asset.json', make_scope('/asset.json'))
         status, _ = await run_response(resp, make_scope('/asset.json'))
         assert status == 200
+
+
+class TestHtmlMetaCspCache:
+    """Meta CSP extraction is cached; unchanged files are not re-read."""
+
+    def make_app(self):
+        return SPANoCacheStaticFiles(directory='/site', html=True, check_dir=False)
+
+    @pytest.mark.trio
+    async def test_unchanged_file_not_reread(self, fs, monkeypatch):
+        """On cache hit the meta extraction must not open the file again."""
+        fs.create_file('/site/index.html', contents=HTML_WITH_META_CSP)
+        app = self.make_app()
+        resp = await app.get_response('index.html', make_scope('/'))
+        await run_response(resp, make_scope('/'))
+
+        # count text-mode opens only: FileResponse still streams the file
+        # once (mode='rb') on send, the meta extraction must not re-read it
+        text_reads = []
+        original_open = open
+
+        def counting_open(file, *args, **kwargs):
+            if args and args[0] == 'r':
+                text_reads.append(file)
+            return original_open(file, *args, **kwargs)
+
+        monkeypatch.setattr('builtins.open', counting_open)
+        resp = await app.get_response('index.html', make_scope('/'))
+        await run_response(resp, make_scope('/'))
+        assert text_reads == []
+
+    @pytest.mark.trio
+    async def test_cache_invalidated_on_content_change(self, fs):
+        """A changed file (new size) must not serve the stale cached CSP."""
+        fs.create_file('/site/index.html', contents=HTML_WITH_META_CSP)
+        app = self.make_app()
+        resp = await app.get_response('index.html', make_scope('/'))
+        _, headers = await run_response(resp, make_scope('/'))
+        assert headers.get('content-security-policy', '').startswith(
+            "default-src 'self'; script-src 'self' 'sha256-abc='")
+
+        fs.remove('/site/index.html')
+        fs.create_file('/site/index.html', contents=HTML_NO_META)
+        resp = await app.get_response('index.html', make_scope('/'))
+        _, headers = await run_response(resp, make_scope('/'))
+        assert headers.get('content-security-policy', '') == CSP
