@@ -2,7 +2,9 @@ import ipaddress
 
 import jwt
 from starlette import status
-from starlette.responses import JSONResponse
+from starlette.responses import Response
+
+from alasio.ext.starapi.param import error_detail
 
 # LAN source whitelist (rule B). Explicit network objects instead of the
 # ipaddress `is_private` / `is_ula` convenience flags: their exact
@@ -168,16 +170,19 @@ class DeploymentGateMiddleware:
             scope (Scope):
 
         Returns:
-            str: '' when allowed, otherwise the error message to reject
+            tuple[str, dict]: (err key, data) when rejected, or
+                ('', {}) when allowed
         """
         # Rule A: no password → only electron token passes
         if not self._has_password() and not self._has_electron_token(scope):
-            return 'Password not set'
+            return 'DEPLOY_PASSWORD_NOT_SET', {}
         # Rule B: lan mode → source check
         if not self._is_public():
-            if not _is_lan_source(self._client_host(scope)):
-                return 'Not a lan source'
-        return ''
+            host = self._client_host(scope)
+            if not _is_lan_source(host):
+                # never expose the rejected source to the client
+                return 'DEPLOY_CERT_NOT_SET', {}
+        return '', {}
 
     def _read_cookie(self, scope):
         """
@@ -223,7 +228,7 @@ class DeploymentGateMiddleware:
             return False
         return True
 
-    async def _reject_http(self, scope, receive, send, message):
+    async def _reject_http(self, scope, receive, send, err, data=None):
         """
         Send a 403 json response for an http scope.
 
@@ -231,11 +236,13 @@ class DeploymentGateMiddleware:
             scope (Scope):
             receive (Receive):
             send (Send):
-            message (str):
+            err (str): Error key for frontend translation
+            data (dict, optional): Extra error data
         """
-        response = JSONResponse(
-            {'detail': f'"{message}"'},
+        response = Response(
+            error_detail(err, data),
             status_code=status.HTTP_403_FORBIDDEN,
+            media_type='application/json',
         )
         await response(scope, receive, send)
 
@@ -272,22 +279,23 @@ class DeploymentGateMiddleware:
             return
 
         # Rules A + B (admission) first: 403 / 4001
-        message = self._check(scope)
-        if message:
+        err, data = self._check(scope)
+        if err:
             if scope['type'] == 'http':
-                await self._reject_http(scope, receive, send, message)
+                await self._reject_http(scope, receive, send, err, data)
             else:
-                await self._reject_ws(scope, receive, send, message)
+                await self._reject_ws(scope, receive, send, err)
             return
 
         # Login layer (http only; the ws handshake validates inside
         # serve() so it can close(4001) after accept)
         if scope['type'] == 'http' and path not in self.EXEMPT:
             if not self._check_login(scope):
-                response = JSONResponse(
-                    '"Token invalid or expired"',
+                response = Response(
+                    error_detail('AUTH_TOKEN_INVALID'),
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     headers={'WWW-Authenticate': 'Bearer'},
+                    media_type='application/json',
                 )
                 await response(scope, receive, send)
                 return

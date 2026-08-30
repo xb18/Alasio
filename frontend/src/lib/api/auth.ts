@@ -5,12 +5,15 @@ export interface loginRequest {
 }
 
 export interface jwtError {
-  // "failure" or "banned"
-  message: string;
-  // Remaining trials
-  remain: number;
-  // IP unbanned after X seconds
-  after: number;
+  // error key, e.g. "FAIL2BAN_TOO_MANY_REQUEST", translated on the frontend
+  err: string;
+  // extra error data, omitted by the backend when empty
+  data?: {
+    // remaining attempts before ban
+    remain?: number;
+    // seconds until the ban / cooldown ends
+    after?: number;
+  };
 }
 
 interface authResponseMap {

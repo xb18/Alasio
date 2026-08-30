@@ -3,11 +3,10 @@ import threading
 import time
 
 from starlette import status
-from starlette.exceptions import HTTPException
 from typing_extensions import Annotated
 
 from alasio.backend.auth.deps import require_electron, require_login
-from alasio.ext.starapi.param import Depends
+from alasio.ext.starapi.param import Depends, HTTPExceptionJson
 from alasio.ext.starapi.router import APIRouter
 
 
@@ -148,12 +147,15 @@ async def ws_renew(
         dict: {'code': R'}
 
     Raises:
-        HTTPException: 401 without a valid JWT (require_login),
+        HTTPExceptionJson: 401 without a valid JWT (require_login),
             403 without a valid electron token (require_electron),
             429 when the code table is at capacity
     """
     try:
         code = renewal_manager.issue()
     except RenewalLimitExceeded:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, detail='"renewal limit exceeded"') from None
+        raise HTTPExceptionJson(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            err='WS_RENEWAL_LIMIT_EXCEEDED',
+        ) from None
     return {'code': code}

@@ -6,14 +6,13 @@ import jwt
 import msgspec
 import trio
 from starlette import status
-from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from typing_extensions import Annotated
 
 from alasio.backend.auth.fail2ban import Fail2Ban
 from alasio.config.table.key import AlasioKeyTable
 from alasio.ext.cache import cached_property
-from alasio.ext.starapi.param import Cookie, Depends, SetCookie
+from alasio.ext.starapi.param import Cookie, Depends, HTTPExceptionJson, SetCookie
 from alasio.ext.starapi.router import APIRouter
 
 
@@ -212,19 +211,17 @@ async def auth_renew(
         # layer (ws handshake / gate middleware) and must not mint
         # tokens on this endpoint.
         if not JWT_MANAGER.pwd:
-            raise HTTPException(
+            raise HTTPExceptionJson(
                 status.HTTP_401_UNAUTHORIZED,
-                # detail must be quoted to become a valid json
-                detail='"Token invalid or expired"',
+                err='AUTH_TOKEN_INVALID',
                 headers={'WWW-Authenticate': 'Bearer'},
             ) from None
         try:
             new = JWT_MANAGER.validate_token(token)
         except jwt.PyJWTError:
-            raise HTTPException(
+            raise HTTPExceptionJson(
                 status.HTTP_401_UNAUTHORIZED,
-                # detail must be quoted to become a valid json
-                detail='"Token invalid or expired"',
+                err='AUTH_TOKEN_INVALID',
                 headers={'WWW-Authenticate': 'Bearer'},
             ) from None
 

@@ -7,6 +7,7 @@ from starlette.middleware.gzip import GZipResponder
 from starlette.responses import FileResponse
 from starlette.staticfiles import StaticFiles
 
+from alasio.ext.starapi.param import HTTPExceptionJson
 from alasio.logger import logger
 
 # Fallback Content-Security-Policy for html responses without a CSP meta
@@ -174,11 +175,11 @@ class ImageStaticFiles(NoCacheStaticFiles):
             scope (Scope):
 
         Raises:
-            HTTPException: 403 when the file is not an image
+            HTTPExceptionJson: 403 when the file is not an image
         """
         suffix = os.path.splitext(path)[1].lower()
         if suffix not in self.IMAGE_EXTENSIONS:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='"Only image assets are served"')
+            raise HTTPExceptionJson(status.HTTP_403_FORBIDDEN, err='ASSETS_IMAGE_ONLY')
         return await super().get_response(path, scope)
 
 

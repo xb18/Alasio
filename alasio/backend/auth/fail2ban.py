@@ -1,24 +1,11 @@
 import time
 
-import msgspec
 import trio
 from starlette import status
-from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
 from alasio.ext.singleton import SingletonNamed
 from alasio.ext.starapi.param import HTTPExceptionJson
-
-
-class JwtError(msgspec.Struct):
-    """JWT error response structure for authentication failures"""
-
-    # Error message: "failure" or "banned"
-    message: str
-    # Remaining trials before ban
-    remain: int
-    # IP will be unbanned after X seconds
-    after: int
 
 
 def get_client_ip(request: Request) -> str:
@@ -163,14 +150,10 @@ class Fail2Ban:
 
         # global cooldown: block all logins briefly
         if manager.global_blocked():
-            error = JwtError(
-                message='banned',
-                remain=0,
-                after=int(manager.global_cool_until - time.time()) or 1,
-            )
             raise HTTPExceptionJson(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=error
+                err='FAIL2BAN_TOO_MANY_REQUEST',
+                data={'after': int(manager.global_cool_until - time.time()) or 1},
             )
 
         # No ban
@@ -188,14 +171,10 @@ class Fail2Ban:
             # a fixed duration, expired records are removed by gc().
             # Extending here would let an attacker keep the ban alive
             # forever by visiting once per ban period (login DoS).
-            error = JwtError(
-                message='banned',
-                remain=0,
-                after=int(end_time - now) or 1,
-            )
             raise HTTPExceptionJson(
                 status.HTTP_403_FORBIDDEN,
-                detail=error
+                err='FAIL2BAN_BANNED',
+                data={'after': int(end_time - now) or 1},
             )
         else:
             # unban expired IP
@@ -205,12 +184,13 @@ class Fail2Ban:
             except KeyError:
                 pass
 
-    def record_failure(self, detail='failure') -> HTTPException:
+    def record_failure(self) -> HTTPExceptionJson:
         """
         Record a failed login attempt
 
-        Raises:
-            HTTPExceptionJson: HTTP_401_UNAUTHORIZED or HTTP_403_FORBIDDEN if IP banned
+        Returns:
+            HTTPExceptionJson: HTTP_401_UNAUTHORIZED (login failed) or
+                HTTP_403_FORBIDDEN (IP banned)
         """
         # this shouldn't happen
         assert self.ip is not None
@@ -224,14 +204,10 @@ class Fail2Ban:
         # first failure
         if self.ip not in manager.failed_attempts:
             manager.failed_attempts[self.ip] = (1, now)
-            error = JwtError(
-                message=detail,
-                remain=manager.max_attempts - 1,
-                after=manager.ban_duration,
-            )
             return HTTPExceptionJson(
                 status.HTTP_401_UNAUTHORIZED,
-                detail=error
+                err='FAIL2BAN_LOGIN_FAILED',
+                data={'remain': manager.max_attempts - 1},
             )
 
         # within failure window
@@ -245,38 +221,26 @@ class Fail2Ban:
                     del manager.failed_attempts[self.ip]
                 except KeyError:
                     pass
-                error = JwtError(
-                    message='banned',
-                    remain=0,
-                    after=manager.ban_duration,
-                )
                 return HTTPExceptionJson(
                     status.HTTP_403_FORBIDDEN,
-                    detail=error
+                    err='FAIL2BAN_BANNED',
+                    data={'after': manager.ban_duration},
                 )
             else:
                 # increase attempt count
                 manager.failed_attempts[self.ip] = (attempts, first_time)
-                error = JwtError(
-                    message=detail,
-                    remain=manager.max_attempts - attempts,
-                    after=manager.ban_duration,
-                )
                 return HTTPExceptionJson(
                     status.HTTP_401_UNAUTHORIZED,
-                    detail=error
+                    err='FAIL2BAN_LOGIN_FAILED',
+                    data={'remain': manager.max_attempts - attempts},
                 )
         else:
             # reset count outside window
             manager.failed_attempts[self.ip] = (1, now)
-            error = JwtError(
-                message=detail,
-                remain=manager.max_attempts - 1,
-                after=manager.ban_duration,
-            )
             return HTTPExceptionJson(
                 status.HTTP_401_UNAUTHORIZED,
-                detail=error
+                err='FAIL2BAN_LOGIN_FAILED',
+                data={'remain': manager.max_attempts - 1},
             )
 
     def record_success(self):

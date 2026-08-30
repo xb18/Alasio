@@ -39,11 +39,31 @@
       }
     } catch (err) {
       // Handle network errors or other exceptions
-      error = {
-        message: t.Auth.NetworkError(),
-        remain: 0,
-        after: 600,
-      };
+      error = { err: "NETWORK_ERROR" };
+    }
+  }
+
+  // Translate the backend error key to a localized message
+  function errorText(err: jwtError): string {
+    switch (err.err) {
+      case "FAIL2BAN_LOGIN_FAILED":
+        return t.Auth.ErrLoginFailed({ remain: err.data?.remain ?? 0 });
+      case "FAIL2BAN_BANNED":
+        return t.Auth.ErrIpBanned({ minutes: Math.ceil((err.data?.after ?? 0) / 60) });
+      case "FAIL2BAN_TOO_MANY_REQUEST":
+        return t.Auth.ErrTooManyRequests({ seconds: err.data?.after ?? 0 });
+      case "AUTH_TOKEN_INVALID":
+        return t.Auth.ErrTokenInvalid();
+      case "AUTH_ELECTRON_ONLY":
+        return t.Auth.ErrElectronOnly();
+      case "DEPLOY_PASSWORD_NOT_SET":
+        return t.Auth.ErrDeployPasswordNotSet();
+      case "DEPLOY_CERT_NOT_SET":
+        return t.Auth.ErrDeployCertNotSet();
+      case "NETWORK_ERROR":
+        return t.Auth.NetworkError();
+      default:
+        return err.err;
     }
   }
 
@@ -80,17 +100,7 @@
             <Help>{t.Auth.PasswordTip()}</Help>
           {/if}
           {#if error}
-            <Help variant="error">
-              {#if error.message === "failure"}
-                {t.Auth.LoginFailed()}<br />
-                {t.Auth.RemainingAttempts()}: {error.remain}
-              {:else if error.message === "banned"}
-                {t.Auth.IpBanned()}<br />
-                {t.Auth.TryAgainIn({ minutes: Math.ceil(error.after / 60) })}
-              {:else}
-                {error.message}
-              {/if}
-            </Help>
+            <Help variant="error">{errorText(error)}</Help>
           {/if}
         </div>
       </div>

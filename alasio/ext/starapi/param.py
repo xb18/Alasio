@@ -35,22 +35,52 @@ class ValidationError(Exception):
         }
 
 
+def error_detail(err: str, data: Any = None) -> bytes:
+    """
+    Build the json error detail: {"err": ..., "data": ...}
+
+    `err` is the error key, e.g. FAIL2BAN_TOO_MANY_REQUEST, the
+    frontend translates the key to a localized message. `data` holds
+    extra error data and is omitted from the detail when empty. Shared
+    by HTTPExceptionJson and middlewares that build the response
+    themselves (the gate middleware cannot raise HTTPException).
+
+    Args:
+        err (str): Error key for frontend translation
+        data (Any, optional): Extra error data. Defaults to None,
+            omitted from the detail when empty.
+
+    Returns:
+        bytes: The json-encoded detail
+    """
+    detail = {'err': err}
+    if data:
+        detail['data'] = data
+    return msgspec.json.encode(detail)
+
+
 class HTTPExceptionJson(HTTPException):
     def __init__(
             self,
             status_code: int,
-            detail: Any = None,
+            err: str,
+            data: Any = None,
             headers: "typing.Mapping[str, str] | None" = None,
     ):
         """
-        HTTPExceptionJson but accepts any response content
+        HTTPException with a json detail: {"err": ..., "data": ...}
+
+        `err` is the error key, e.g. FAIL2BAN_TOO_MANY_REQUEST, the
+        frontend translates the key to a localized message. `data` holds
+        extra error data and is omitted from the detail when empty.
 
         Args:
-            status_code:
-            detail:
-            headers:
+            status_code (int): HTTP status code
+            err (str): Error key for frontend translation
+            data (Any, optional): Extra error data. Defaults to None,
+                omitted from the detail when empty.
+            headers (Mapping[str, str], optional): Response headers.
         """
-        detail = msgspec.json.encode(detail)
         # Note no.1
         # It just OK to input bytes to `details`
         # In starlettle/middleware/exceptions.py http_exception(), HTTPException will turn into PlainTextResponse
@@ -58,7 +88,7 @@ class HTTPExceptionJson(HTTPException):
         # Note no.2
         # `headers` is added in https://github.com/encode/starlette/pull/1435
         # so Alasio[backend] requires starlette>=0.19.0
-        super().__init__(status_code, detail=detail, headers=headers)
+        super().__init__(status_code, detail=error_detail(err, data), headers=headers)
 
 
 class RequestInject:
