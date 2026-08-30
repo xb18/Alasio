@@ -20,7 +20,7 @@ async def require_electron(request: Request):
     from alasio.backend.mpipe.token_backend import token_table
 
     if not token_table.verify_header(request):
-        raise HTTPException(status_code=403, detail='electron only')
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='electron only')
 
 
 async def require_login(request: Request):

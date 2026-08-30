@@ -1,6 +1,7 @@
 import ipaddress
 
 import jwt
+from starlette import status
 from starlette.responses import JSONResponse
 
 # LAN source whitelist (rule B). Explicit network objects instead of the
@@ -234,7 +235,7 @@ class DeploymentGateMiddleware:
         """
         response = JSONResponse(
             {'detail': f'"{message}"'},
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
         )
         await response(scope, receive, send)
 
@@ -285,7 +286,7 @@ class DeploymentGateMiddleware:
             if not self._check_login(scope):
                 response = JSONResponse(
                     '"Token invalid or expired"',
-                    status_code=401,
+                    status_code=status.HTTP_401_UNAUTHORIZED,
                     headers={'WWW-Authenticate': 'Bearer'},
                 )
                 await response(scope, receive, send)

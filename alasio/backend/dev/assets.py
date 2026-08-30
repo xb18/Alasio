@@ -1,6 +1,7 @@
 import os
 import re
 
+from starlette import status
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipResponder
 from starlette.responses import FileResponse
@@ -103,7 +104,7 @@ class NoCacheStaticFiles(StaticFiles):
         """
         return ''
 
-    def file_response(self, full_path, stat_result, scope, status_code=200):
+    def file_response(self, full_path, stat_result, scope, status_code=status.HTTP_200_OK):
         resp = super().file_response(full_path, stat_result, scope, status_code)
         if not isinstance(resp, FileResponse):
             # return NotModifiedResponse directly
@@ -177,7 +178,7 @@ class ImageStaticFiles(NoCacheStaticFiles):
         """
         suffix = os.path.splitext(path)[1].lower()
         if suffix not in self.IMAGE_EXTENSIONS:
-            raise HTTPException(status_code=403, detail='"Only image assets are served"')
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='"Only image assets are served"')
         return await super().get_response(path, scope)
 
 
@@ -193,7 +194,7 @@ class SPAStaticFiles(StaticFiles):
             return await super().get_response(path, scope)
         except HTTPException as e:
             # If the file is not found (404), serve index.html
-            if e.status_code == 404:
+            if e.status_code == status.HTTP_404_NOT_FOUND:
                 # Important: we need to serve index.html from the root path
                 return await super().get_response('index.html', scope)
             # Re-raise any other exceptions
