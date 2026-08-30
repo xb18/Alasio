@@ -1,5 +1,6 @@
 import { effect_root } from "svelte/internal/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { flushEffects } from "$lib/test-utils/flush-effects";
 import { WebsocketManager } from "./client.svelte";
@@ -23,6 +24,9 @@ describe("TestUseTopic", () => {
   beforeEach(() => {
     FakeWebSocket.reset();
     vi.clearAllMocks();
+    // useTopic -> sub -> connect: the logged-out guard would block the
+    // connection, so default to the logged-in state.
+    authState.loggedIn = true;
     client = new WebsocketManager();
   });
 

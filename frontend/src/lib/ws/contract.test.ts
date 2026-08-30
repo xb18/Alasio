@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { WebsocketManager } from "./client.svelte";
 import type { RequestEvent, ResponseEvent } from "./event";
@@ -22,6 +23,12 @@ const fixtures = JSON.parse(readFileSync((import.meta.env as Record<string, stri
   request: { omit_defaults: RequestEvent[]; full: RequestEvent[] };
   response: { omit_defaults: ResponseEvent[]; full: ResponseEvent[] };
 };
+
+beforeEach(() => {
+  // The connect guard skips unauthenticated connections; these tests
+  // drive the connection machinery directly.
+  authState.loggedIn = true;
+});
 
 describe("TestRequestEventContract", () => {
   it("omit_defaults requests only carry the fields that differ from defaults", () => {

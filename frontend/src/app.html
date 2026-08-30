@@ -4,13 +4,16 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%sveltekit.assets%/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Content-Security-Policy. The theme pre-paint
-         script below is allowed through its sha256 hash (no
-         'unsafe-inline'). frame-ancestors is NOT set here: the meta tag
-         ignores it, the backend response header (SPANoCacheStaticFiles)
-         carries the full policy including frame-ancestors 'self'
-         app://bundle so the electron host can embed this page.
-         Modifying the inline script below requires recomputing the hash. -->
+    <!-- Content-Security-Policy. The inline scripts below are allowed
+         through sha256 hashes (no 'unsafe-inline'); the build-time
+         csp-inline-hash plugin rewrites the script-src hashes on every
+         dev/build so they always cover the current inline scripts
+         (including the sveltekit bootstrap script, which changes per
+         build). The hard-coded hash below only serves as a fallback
+         when the plugin does not run. frame-ancestors is NOT set here:
+         the meta tag ignores it, the backend response header carries the
+         full policy including frame-ancestors 'self' app://bundle so
+         the electron host can embed this page. -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'sha256-/c574zxOUzzzs52yM/ATmZ7eBGoJ3nHgHTc8O5t7jRw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'self'"

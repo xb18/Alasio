@@ -7,6 +7,7 @@ import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
 import { type Plugin, defineConfig } from "vite";
 import electron from "vite-plugin-electron";
+import { cspInlineHashDev } from "./scripts/csp-inline-hash/vite.ts";
 import { mainI18nConfig, rendererI18nConfig } from "./scripts/i18n/config.ts";
 import { i18nPlugin } from "./scripts/i18n/vite.ts";
 
@@ -188,7 +189,18 @@ export default defineConfig({
     },
     svelteKitGeneratedHmrGuard(),
     ignoreBuildOutput("**/dist/**"),
+    // dev: intercept html responses before sveltekit injects its
+    // bootstrap script (enforce pre inside the plugin)
+    cspInlineHashDev(),
   ],
+  server: {
+    fs: {
+      // sveltekit 2.70 restricts fs.allow to its source dirs
+      // (renderer/lib, renderer/routes, ...); the renderer root itself
+      // (app.css, app.html) is served by vite in dev and must be allowed.
+      allow: [__dirname],
+    },
+  },
   esbuild: {
     legalComments: "none",
   },

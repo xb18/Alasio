@@ -1,5 +1,6 @@
 import { browser } from "$app/environment";
 import { goto, invalidateAll } from "$app/navigation";
+import { authState } from "$lib/auth/state.svelte";
 import { deepDel, deepSet } from "./deep";
 import type { RequestEvent, ResponseEvent } from "./event";
 import { RenewalCoordinator } from "./renewal.svelte";
@@ -85,6 +86,25 @@ export class WebsocketManager {
    * Initiates a WebSocket connection if one is not already open or connecting.
    */
   connect() {
+    // Never connect while logged out: the backend accepts the handshake
+    // then closes it with 4001 (a refused handshake would only surface as
+    // 1006 to the browser), so an unauthenticated connection is a
+    // guaranteed failure plus an auth-failure redirect. The login page
+    // and the (private) layout load maintain authState.loggedIn; once a
+    // component subscribes after login, this method runs again with the
+    // flag set and the connection is established.
+    if (!authState.loggedIn) {
+      // Drop any scheduled reconnect: retrying while logged out is
+      // pointless and would burn the retry budget into invalidateAll().
+      if (this.#reconnectTimeout !== undefined) {
+        clearTimeout(this.#reconnectTimeout);
+        this.#reconnectTimeout = undefined;
+      }
+      this.#reconnectAttempts = 0;
+      this.connectionState = "closed";
+      return;
+    }
+
     if (this.#ws && (this.#ws.readyState === WebSocket.OPEN || this.#ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
@@ -137,7 +157,8 @@ export class WebsocketManager {
         // Custom code for Authentication failure
         console.error("Authentication failed. Redirecting to login via goto().");
         this.#clearAll();
-        goto("/auth/login");
+        authState.loggedIn = false;
+        goto("/auth");
         return;
       }
       if (event.code === 4002) {

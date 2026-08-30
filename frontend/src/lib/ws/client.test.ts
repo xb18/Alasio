@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { goto, invalidateAll } from "$app/navigation";
+import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { WebsocketManager } from "./client.svelte";
 
@@ -91,6 +92,77 @@ describe("TestConnect", () => {
     expect(FakeWebSocket.instances).toHaveLength(2);
     expect(client.connectionState).toBe("reconnecting");
 
+    FakeWebSocket.last!.serverOpen();
+    expect(client.connectionState).toBe("open");
+  });
+});
+
+describe("TestConnectWhenLoggedOut", () => {
+  it("does not create a websocket while logged out", () => {
+    authState.loggedIn = false;
+    const client = new WebsocketManager();
+    client.connect();
+    expect(FakeWebSocket.instances).toHaveLength(0);
+    expect(client.connectionState).toBe("closed");
+  });
+
+  it("connects on a later call once logged in", () => {
+    authState.loggedIn = false;
+    const client = new WebsocketManager();
+    client.connect();
+    expect(FakeWebSocket.instances).toHaveLength(0);
+
+    authState.loggedIn = true;
+    client.connect();
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    FakeWebSocket.last!.serverOpen();
+    expect(client.connectionState).toBe("open");
+  });
+
+  it("subscribing while logged out stays disconnected", () => {
+    authState.loggedIn = false;
+    const client = new WebsocketManager();
+    client.sub("ConfigScan");
+    expect(FakeWebSocket.instances).toHaveLength(0);
+    expect(client.subscriptions).toEqual({ ConfigScan: 1 });
+  });
+
+  it("cancels a scheduled reconnect while logged out", () => {
+    const client = new WebsocketManager();
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    // A dropped connection schedules a reconnect in 1s.
+    FakeWebSocket.last!.serverClose(1006);
+
+    authState.loggedIn = false;
+    vi.advanceTimersByTime(1000);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+
+    // No further reconnect is scheduled, so nothing connects later either.
+    vi.advanceTimersByTime(30_000);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  it("clears the retry budget while logged out so a later login gets a fresh budget", () => {
+    const client = new WebsocketManager();
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    // Burn through the reconnect budget with consecutive failures.
+    for (const delay of [1000, 2000, 4000, 8000, 16000]) {
+      FakeWebSocket.last!.serverClose(1006);
+      vi.advanceTimersByTime(delay);
+    }
+    // The 6th failure hits the budget cap and invalidates all data.
+    FakeWebSocket.last!.serverClose(1006);
+    expect(invalidateAll).toHaveBeenCalledTimes(1);
+    expect(FakeWebSocket.instances).toHaveLength(6);
+
+    // Logged-out connects reset the budget; a logged-in connect succeeds.
+    authState.loggedIn = false;
+    client.connect();
+    authState.loggedIn = true;
+    client.connect();
+    expect(FakeWebSocket.instances).toHaveLength(7);
     FakeWebSocket.last!.serverOpen();
     expect(client.connectionState).toBe("open");
   });
@@ -601,7 +673,8 @@ describe("TestReconnect", () => {
     FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConnState", o: "full", v: { lang: "en-US" } }));
 
     FakeWebSocket.last!.serverClose(4001);
-    expect(goto).toHaveBeenCalledWith("/auth/login");
+    expect(goto).toHaveBeenCalledWith("/auth");
+    expect(authState.loggedIn).toBe(false);
     expect(client.topics).toEqual({});
     expect(client.topicReady).toEqual({});
   });
@@ -695,6 +768,9 @@ beforeEach(() => {
   });
   FakeWebSocket.reset();
   vi.clearAllMocks();
+  // Most tests drive the connection machinery directly; default to the
+  // logged-in state, tests for the logged-out guard override it.
+  authState.loggedIn = true;
 });
 
 afterEach(() => {

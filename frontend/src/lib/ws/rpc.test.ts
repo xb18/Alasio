@@ -1,6 +1,7 @@
 import { toast } from "svelte-sonner";
 import { effect_root } from "svelte/internal/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { authState } from "$lib/auth/state.svelte";
 import { FakeWebSocket } from "$lib/test-utils/fake-websocket";
 import { flushEffects } from "$lib/test-utils/flush-effects";
 import { websocketClient } from "./client.svelte";
@@ -347,6 +348,8 @@ describe("TestCreateResilientRpc", () => {
       delete websocketClient.topics[key];
     }
     vi.clearAllMocks();
+    // The singleton ws client connects through the logged-out guard.
+    authState.loggedIn = true;
   });
 
   afterEach(async () => {
