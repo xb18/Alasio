@@ -106,19 +106,23 @@ class RenewalCodeManager:
         while already inside the lock; a second acquisition would deadlock
         on the non-reentrant threading.Lock).
 
+        Collects the expired codes first, then deletes: deleting while
+        iterating a dict raises RuntimeError even under the lock (same
+        thread), and the lock serializes concurrent writers during the
+        collection pass.
+
         Returns:
             int: Number of codes removed
         """
         now = self._clock()
-        count = 0
-        for code, issued in self._codes.items():
-            if now - issued > self._ttl:
-                try:
-                    del self._codes[code]
-                except KeyError:
-                    pass
-                count += 1
-        return count
+        expired = [code for code, issued in self._codes.items() if now - issued > self._ttl]
+        for code in expired:
+            try:
+                del self._codes[code]
+            except KeyError:
+                # defensive: the lock serializes writers, this cannot happen
+                pass
+        return len(expired)
 
 
 renewal_manager = RenewalCodeManager()
