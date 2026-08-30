@@ -1,3 +1,6 @@
+import os
+import re
+
 from starlette.exceptions import HTTPException
 from starlette.middleware.gzip import GZipResponder
 from starlette.responses import FileResponse
@@ -5,13 +8,13 @@ from starlette.staticfiles import StaticFiles
 
 from alasio.logger import logger
 
-# Content-Security-Policy for html responses (must stay
-# identical to the meta CSP in frontend/src/app.html: when both exist the
-# browser enforces their intersection). frame-ancestors can only be set
-# through a response header (the meta tag ignores it): it allows the
-# electron host (app://bundle) to embed the page. The script hash covers
-# the inline theme pre-paint script of frontend/src/app.html; modifying
-# that script requires recomputing the hash.
+# Fallback Content-Security-Policy for html responses without a CSP meta
+# (the served page normally carries its own meta, kept in sync with the
+# inline scripts by the build-time csp-inline-hash plugin; the response
+# header then mirrors that meta so the browser enforces their
+# intersection). frame-ancestors can only be set through a response
+# header (the meta tag ignores it): it allows the electron host
+# (app://bundle) to embed the page.
 CSP = (
     "default-src 'self'; "
     "script-src 'self' 'sha256-/c574zxOUzzzs52yM/ATmZ7eBGoJ3nHgHTc8O5t7jRw='; "
@@ -27,9 +30,62 @@ CSP = (
 )
 
 
+# Inline script hashes are recomputed on every build (the sveltekit
+# bootstrap script embeds build hashes), so the response header must
+# follow the page's own meta instead of a hard-coded list.
+def _html_meta_csp(file_path):
+    """
+    Extract the Content-Security-Policy meta of an html file, or ''.
+
+    The build-time csp-inline-hash plugin keeps the meta in sync with the
+    inline scripts (both hash algorithms for every inline script), so
+    serving the meta as the response header keeps the two identical
+    (the browser enforces their intersection).
+
+    Args:
+        file_path (str): Path of the html file being served
+
+    Returns:
+        str: The meta CSP content, or '' when absent / unreadable
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except OSError:
+        return ''
+    match = re.search(
+        r'<meta[^>]*http-equiv="Content-Security-Policy"[^>]*content="([^"]*)"',
+        content, re.IGNORECASE)
+    return match.group(1).strip() if match else ''
+
+
 class NoCacheStaticFiles(StaticFiles):
-    def file_response(self, *args, **kwargs):
-        resp = super().file_response(*args, **kwargs)
+    """
+    Static file server with no-cache headers (and an optional CSP hook).
+
+    Subclasses:
+    - ImageStaticFiles: mod dev assets, image-only
+    - SPANoCacheStaticFiles: frontend page server, SPA fallback + CSP
+    """
+
+    def _csp_for(self, full_path, media_type):
+        """
+        Hook: return the Content-Security-Policy header value for a
+        response, or '' when the response needs none. Defaults to no CSP
+        (images need none); SPANoCacheStaticFiles overrides this for html
+        pages.
+
+        Args:
+            full_path (str): Path of the served file
+            media_type (str | None): Response media type
+
+        Returns:
+            str: CSP value, or '' for none
+        """
+        return ''
+
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        resp = super().file_response(full_path, stat_result, scope, status_code)
         if not isinstance(resp, FileResponse):
             # return NotModifiedResponse directly
             return resp
@@ -42,9 +98,10 @@ class NoCacheStaticFiles(StaticFiles):
         resp.headers.setdefault('Expires', '0')
         resp.headers.setdefault('Pragma', 'no-cache')
 
-        # CSP on html responses (identical to the meta tag in app.html)
-        if resp.media_type == 'text/html':
-            resp.headers.setdefault('Content-Security-Policy', CSP)
+        # CSP (hook): only the frontend page server attaches one
+        csp = self._csp_for(full_path, resp.media_type)
+        if csp:
+            resp.headers.setdefault('Content-Security-Policy', csp)
 
         # GZipMiddleware
         resp = GZipResponder(resp, minimum_size=500, compresslevel=9)
@@ -75,6 +132,36 @@ class NoCacheStaticFiles(StaticFiles):
         router.mount(path, app, name=name)
 
 
+class ImageStaticFiles(NoCacheStaticFiles):
+    """
+    Static file server for mod dev assets: image-only.
+
+    Only image files are served; any other content is rejected with 403
+    (a mod asset directory must never serve executable content, e.g. an
+    html file that would run without a CSP). No CSP is attached here:
+    images do not need one.
+    """
+
+    # image whitelist; svg is deliberately absent (svg can embed scripts)
+    IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'}
+
+    async def get_response(self, path, scope):
+        """
+        Reject non-image content outright.
+
+        Args:
+            path (str): The request path
+            scope (Scope):
+
+        Raises:
+            HTTPException: 403 when the file is not an image
+        """
+        suffix = os.path.splitext(path)[1].lower()
+        if suffix not in self.IMAGE_EXTENSIONS:
+            raise HTTPException(status_code=403, detail='"Only image assets are served"')
+        return await super().get_response(path, scope)
+
+
 class SPAStaticFiles(StaticFiles):
     """
     Subclass StaticFiles to serve index.html for any path that doesn't match a file.
@@ -95,4 +182,27 @@ class SPAStaticFiles(StaticFiles):
 
 
 class SPANoCacheStaticFiles(SPAStaticFiles, NoCacheStaticFiles):
-    pass
+    """Frontend page server: no-cache + SPA fallback + CSP."""
+
+    def _csp_for(self, full_path, media_type):
+        """
+        CSP for html pages: mirror the page's own meta CSP (kept in sync
+        with the inline scripts by the build-time csp-inline-hash
+        plugin), extended with frame-ancestors which the meta tag
+        ignores. Fall back to the static CSP when the page has no meta.
+
+        Args:
+            full_path (str): Path of the served file
+            media_type (str | None): Response media type
+
+        Returns:
+            str: CSP value, or '' for non-html responses
+        """
+        if media_type != 'text/html':
+            return ''
+        csp = _html_meta_csp(full_path)
+        if csp:
+            if 'frame-ancestors' not in csp:
+                csp = f'{csp}; frame-ancestors \'self\' app://bundle'
+            return csp
+        return CSP

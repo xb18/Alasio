@@ -206,7 +206,7 @@ def create_app():
     app.routes.append(Route('/robots.txt', robots_txt))
 
     # Mound dev files
-    from alasio.backend.dev.assets import NoCacheStaticFiles, SPANoCacheStaticFiles
+    from alasio.backend.dev.assets import ImageStaticFiles, SPANoCacheStaticFiles
     from alasio.config.entry.loader import MOD_LOADER
     from alasio.ext.path.calc import joinnormpath
     from alasio.ext.starapi.router import APIRouter
@@ -215,7 +215,7 @@ def create_app():
     assets_router = APIRouter('/dev_assets')
     for mod in MOD_LOADER.dict_mod.values():
         path = f'/{mod.name}/{mod.entry.path_assets}'
-        NoCacheStaticFiles.mount(
+        ImageStaticFiles.mount(
             assets_router, path, directory=joinnormpath(mod.entry.root, mod.entry.path_assets), check_dir=False)
     app.add_router('/api', assets_router)
 
