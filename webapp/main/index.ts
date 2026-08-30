@@ -2,7 +2,7 @@ import * as path from "path";
 import { app, ipcMain } from "electron";
 import { IPC_BACKEND_START } from "../shared/ipc";
 import { appState } from "./app-state";
-import { setMainWindow as setBackendWindow, startBackend } from "./backend";
+import { registerTokenInjection, setMainWindow as setBackendWindow, startBackend } from "./backend";
 import { loadConfig } from "./config";
 import { registerAppProtocol } from "./protocol";
 import { initSharedState, setRoute, setMainWindow as setSharedStateWindow, setupSharedStateIPC } from "./shared-state";
@@ -58,6 +58,10 @@ if (!gotTheLock) {
     // Register the nativeTheme listener and derive the initial display
     // values (must happen after app ready).
     appState.init();
+
+    // Inject X-Alasio-Token into local backend requests (http + ws).
+    // Registered once; the callback reads the live authToken variable.
+    registerTokenInjection();
 
     // Handle config errors
     if (appState.configError) {

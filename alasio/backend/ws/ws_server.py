@@ -1,13 +1,14 @@
 from collections import deque
 from typing import Deque, Optional, Type, Union
 
+import jwt as pyjwt
 import msgspec
 import trio
 from msgspec import DecodeError, EncodeError, ValidationError
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 from trio import Event
 
-from alasio.backend.reactive.event import AccessDenied, RequestEvent, ResponseEvent
+from alasio.backend.reactive.event import AccessDenied, ElectronOnlyError, RequestEvent, ResponseEvent
 from alasio.backend.reactive.safeid import SafeIDGenerator
 from alasio.backend.ws.ws_topic import BaseTopic
 from alasio.logger import logger
@@ -28,6 +29,12 @@ class WebsocketTopicServer:
     """
     Class methods that manage all connections
     """
+
+    # active connections registry: key = connection id, value = server.
+    # Registered in serve() after accept, unregistered on exit. Used by
+    # the rotation notification (Phase 5) to reach restricted-subscription
+    # connections.
+    active: "dict[str, WebsocketTopicServer]" = {}
 
     server_terminated = Event()
 
@@ -74,6 +81,10 @@ class WebsocketTopicServer:
     def __init__(self, ws: WebSocket):
         self.ws = ws
         self.id = CONN_ID_GENERATOR.get()
+        # electron token from the handshake header X-Alasio-Token; '' when
+        # absent. Kept per-connection, updated by a successful renewal
+        # (o='auth'). Verified in real time for restricted operations.
+        self.auth_token = ''
 
         self.conn_terminated = Event()
         # timestamp of last activity, used to calculate the next "ping"
@@ -121,25 +132,70 @@ class WebsocketTopicServer:
             await self.close()
             return
 
-        # handle messages
-        async with trio.open_nursery() as nursery:
-            # init before handing messages
-            await self.init()
+        # Login layer: validate after accept. A refused handshake would
+        # only surface as 1006 to the browser and the frontend could not
+        # read the close code; accept-then-close delivers the real 4001.
+        # A valid electron token passes without JWT (Electron exemption,
+        # aligned with the http /api/auth/renew exemption).
+        if not await self._check_login():
+            await self.close(4001, 'Login required')
+            return
 
-            # open 2 buffers, send buffer and recv buffer
-            # start 4 async tasks, sender, receiver, job handler, heartbeat handler
+        # Read the electron token from the handshake headers (ws.headers
+        # keeps the handshake headers after accept).
+        from alasio.backend.mpipe.token_backend import read_token_header
+        self.auth_token = read_token_header(self.ws)
 
-            # send buffer, set send buffer first
-            self.send_buffer, recv = trio.open_memory_channel(self.SEND_BUFFER_LENGTH)
-            nursery.start_soon(self.task_send, recv, self.lossy_buffer)
+        # register into the active connections registry
+        WebsocketTopicServer.active[self.id] = self
+        try:
+            # handle messages
+            async with trio.open_nursery() as nursery:
+                # init before handing messages
+                await self.init()
 
-            # recv buffer
-            send, recv = trio.open_memory_channel(8)
-            nursery.start_soon(self.task_recv, send)
-            nursery.start_soon(self.task_job, recv)
+                # open 2 buffers, send buffer and recv buffer
+                # start 4 async tasks, sender, receiver, job handler, heartbeat handler
 
-            # heartbeat
-            nursery.start_soon(self.task_heartbeat)
+                # send buffer, set send buffer first
+                self.send_buffer, recv = trio.open_memory_channel(self.SEND_BUFFER_LENGTH)
+                nursery.start_soon(self.task_send, recv, self.lossy_buffer)
+
+                # recv buffer
+                send, recv = trio.open_memory_channel(8)
+                nursery.start_soon(self.task_recv, send)
+                nursery.start_soon(self.task_job, recv)
+
+                # heartbeat
+                nursery.start_soon(self.task_heartbeat)
+        finally:
+            # unregister from the active connections registry
+            try:
+                WebsocketTopicServer.active.pop(self.id, None)
+            except Exception:
+                pass
+
+    async def _check_login(self):
+        """
+        Validate the login layer on the handshake: a valid electron token
+        passes without JWT (only the local Electron network layer can
+        supply a table token), otherwise the alasio_token cookie JWT must
+        be valid.
+
+        Returns:
+            bool: True when the connection is logged in
+        """
+        from alasio.backend.auth.auth import JWT_MANAGER
+        from alasio.backend.mpipe.token_backend import token_table
+
+        if token_table.verify_header(self.ws):
+            return True
+        token = self.ws.cookies.get('alasio_token', '')
+        try:
+            JWT_MANAGER.validate_token(token)
+        except pyjwt.PyJWTError:
+            return False
+        return True
 
     async def init(self):
         """
@@ -517,6 +573,18 @@ class WebsocketTopicServer:
         """
         op = event.o
         t = event.t
+        if op == 'auth':
+            # Electron token renewal: redeem the one-time code
+            # issued by POST /api/ws/renew and update the connection's
+            # auth_token to the latest token in the table. A failed
+            # redeem raises AccessDenied: the connection stays alive.
+            from alasio.backend.mpipe.token_backend import token_table
+            from alasio.backend.ws.renew import renewal_manager
+
+            if renewal_manager.redeem(event.v):
+                self.auth_token = token_table.current()
+                return
+            raise AccessDenied('Invalid or expired renewal code')
         if op == 'sub':
             # cannot double subscribe a default-subscribed topic
             if t in self.DEFAULT_TOPIC_CLASS:
@@ -526,6 +594,14 @@ class WebsocketTopicServer:
                 topic_class = self.ALL_TOPIC_CLASS[t]
             except KeyError:
                 raise AccessDenied(f'No such topic: "{t}"')
+            # electron check before creating the topic: a rejected
+            # subscribe only sends an error message and the connection
+            # stays alive (red line: never close on subscribe
+            # refusal, the frontend silently drops the error topic)
+            if topic_class.REQUIRE_ELECTRON:
+                from alasio.backend.mpipe.token_backend import token_table
+                if not token_table.verify(self.auth_token):
+                    raise ElectronOnlyError(f'Topic requires electron: "{t}"')
             # if topic is already subscribed, ignore this event
             if t in self.subscribed:
                 return

@@ -2,6 +2,12 @@ import trio
 
 SHUTDOWN_EVENT = trio.Event()
 
+# Per-connection timeout for the rotation notification (send / close):
+# a stuck connection must not stall the others. notify_rotation runs
+# the connections concurrently, so the whole pass is bounded by the
+# slowest single connection (worst case one timeout).
+ROTATION_NOTIFY_TIMEOUT = 2.0
+
 
 def mpipe_recv_loop(conn, trio_token):
     """
@@ -46,6 +52,14 @@ def mpipe_recv_loop(conn, trio_token):
         if msg == b'command:stop':
             request_shutdown('Backend received stop request from supervisor, shutting down backend')
             break
+        elif msg.startswith(b'token:'):
+            # New token from the supervisor rotation: add it to the table
+            # (handle_token acknowledges back through MPipeBackend) and
+            # notify the ws connections (Phase 5 rotation check).
+            from alasio.backend.mpipe.token_backend import token_table
+            token = msg[6:].decode()
+            token_table.handle_token(token)
+            _notify_rotation(trio_token)
         elif msg.startswith(b'command:set_lang:'):
             # Host-level webapp language from the stdin contract. Parse,
             # validate and persist; keep looping (do not break).
@@ -64,21 +78,101 @@ def mpipe_recv_loop(conn, trio_token):
             logger.warning(f'Backend received unknown msg from supervisor: {msg}')
 
 
+async def _notify_one(server):
+    """
+    Notify one restricted-subscription connection after a token rotation,
+    with a per-connection timeout: a stuck or broken connection is
+    skipped without affecting the other connections.
+
+    Args:
+        server (WebsocketTopicServer): The connection to notify
+    """
+    from alasio.backend.mpipe.token_backend import token_table
+    from alasio.backend.reactive.event import ResponseEvent
+    from alasio.logger import logger
+
+    try:
+        with trio.fail_after(ROTATION_NOTIFY_TIMEOUT):
+            if token_table.verify(server.auth_token):
+                # token still in the window: ask the frontend to renew
+                await server.send(ResponseEvent(t='auth', o='full', v='renew'))
+            else:
+                # token already evicted: standard reconnect will carry a
+                # fresh token on the next handshake
+                await server.close(4002, 'token rotated')
+    except trio.TooSlowError:
+        # send/close stuck (e.g. send buffer back-pressure), skip this
+        # connection; the next rotation re-checks it
+        logger.warning(f'Rotation notify timeout for {server}')
+    except Exception as e:
+        # a single broken connection must not abort the notification
+        # of the other connections
+        logger.warning(f'Rotation notify failed for {server}: {e}')
+
+
+async def notify_rotation():
+    """
+    Notify ws connections after a token rotation: connections subscribed
+    to an electron-restricted topic either receive the "renew" control
+    message (token still in window) or close(4002) (token already
+    evicted). Connections are notified concurrently inside a nursery,
+    each with its own timeout, so one stuck connection cannot stall the
+    others. Runs on the trio loop (mpipe_recv_loop calls it through
+    _notify_rotation).
+    """
+    from alasio.backend.ws.ws_server import WebsocketTopicServer
+
+    targets = []
+    for server in list(WebsocketTopicServer.active.values()):
+        # the restricted set comes from the connection's own class
+        # (subclasses register their own ALL_TOPIC_CLASS)
+        restricted = {
+            name for name, cls in type(server).ALL_TOPIC_CLASS.items()
+            if cls.REQUIRE_ELECTRON
+        }
+        if not restricted.intersection(server.subscribed):
+            # ordinary connections without restricted subscriptions
+            # never need to renew
+            continue
+        targets.append(server)
+
+    if not targets:
+        return
+    async with trio.open_nursery() as nursery:
+        for server in targets:
+            nursery.start_soon(_notify_one, server)
+
+
+def _notify_rotation(trio_token):
+    """
+    Bridge notify_rotation into the trio loop from the mpipe recv thread.
+
+    Args:
+        trio_token:
+    """
+    try:
+        trio.from_thread.run(notify_rotation, trio_token=trio_token)
+    except Exception:
+        # trio loop already gone, nothing to notify
+        pass
+
+
 async def lifespan_restart():
     """
     Restart the entire backend
     """
-    import builtins
-    conn = getattr(builtins, '__mpipe_conn__', None)
-    if conn is None:
+    from alasio.backend.mpipe.mpipe_backend import mpipe_backend
+
+    if not mpipe_backend:
         raise PermissionError(f'Cannot restart backend running without supervisor')
 
     # log
     from alasio.logger import logger
     logger.info('Backend received restart request from RPC, shutting down backend')
 
-    # Send b'command:restart' to supervisor
-    await trio.to_thread.run_sync(conn.send_bytes, b'command:restart')
+    # Send b'command:restart' to supervisor (strict: must fail loudly
+    # when the pipe is unavailable)
+    await trio.to_thread.run_sync(mpipe_backend.send, b'command:restart', True)
 
     # stop backend
     SHUTDOWN_EVENT.set()
@@ -88,17 +182,18 @@ async def lifespan_stop():
     """
     Stop the entire backend
     """
-    import builtins
-    conn = getattr(builtins, '__mpipe_conn__', None)
-    if conn is None:
+    from alasio.backend.mpipe.mpipe_backend import mpipe_backend
+
+    if not mpipe_backend:
         raise PermissionError(f'Cannot stop backend running without supervisor')
 
     # log
     from alasio.logger import logger
     logger.info('Backend received stop request from RPC, shutting down backend')
 
-    # Send b'command:stop' to supervisor
-    await trio.to_thread.run_sync(conn.send_bytes, b'command:stop')
+    # Send b'command:stop' to supervisor (strict: must fail loudly
+    # when the pipe is unavailable)
+    await trio.to_thread.run_sync(mpipe_backend.send, b'command:stop', True)
 
     # stop backend
     SHUTDOWN_EVENT.set()
@@ -109,11 +204,9 @@ def get_shutdown_trigger():
     Get shutdown_trigger function, or None if no daemon by supervisor.
     When shutdown_trigger() runs ended, hypercorn will stop serving connections.
     """
-    import builtins
-
+    from alasio.backend.mpipe.mpipe_backend import mpipe_backend
     from alasio.logger import logger
-    conn = getattr(builtins, '__mpipe_conn__', None)
-    if conn is None:
+    if not mpipe_backend:
         # no supervisor, cannot restart
         logger.info('Backend running without supervisor')
         return None
@@ -126,7 +219,7 @@ def get_shutdown_trigger():
         await SHUTDOWN_EVENT.wait()
 
     from threading import Thread
-    thread = Thread(target=mpipe_recv_loop, args=(conn, trio_token),
+    thread = Thread(target=mpipe_recv_loop, args=(mpipe_backend.conn, trio_token),
                     name='mpipe_child_recv', daemon=True)
     thread.start()
     return shutdown_trigger

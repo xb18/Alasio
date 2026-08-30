@@ -120,5 +120,6 @@
     class="w-full flex-1 border-0 opacity-0 transition-opacity duration-150"
     class:opacity-100={iframeVisible}
     title="Alasio App"
+    sandbox="allow-scripts allow-same-origin allow-forms"
   ></iframe>
 </div>

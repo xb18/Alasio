@@ -1,3 +1,4 @@
+import hashlib
 import time
 
 import jwt
@@ -5,8 +6,10 @@ import pytest
 
 from alasio.backend.auth.auth import JwtManager
 
-SECRET = b'test-secret-0123456789abcdef'
+SECRET = b'test-secret'
 PASSWORD = 'test-password'
+# the JWT subject is never the plaintext password (red line)
+SUB = 'v1:' + hashlib.sha256(PASSWORD.encode()).hexdigest()
 
 
 class TestValidateToken:
@@ -20,7 +23,7 @@ class TestValidateToken:
         self.jwt.secret = SECRET
         self.jwt.pwd = PASSWORD
 
-    def _make_token(self, sub=PASSWORD, iat=None, omit_iat=False, exp=3600, **extra):
+    def _make_token(self, sub=SUB, iat=None, omit_iat=False, exp=3600, extra=None):
         """
         Create a signed token for tests, mimicking JwtManager.create() which always
         includes exp. Pass sub=None to omit sub, omit_iat=True to omit iat, and
@@ -31,6 +34,7 @@ class TestValidateToken:
             iat (float): Issued-at timestamp, None means now
             omit_iat (bool): Omit the iat claim entirely
             exp (float): Expiry seconds from now, None to omit
+            extra (dict): Extra claims to include
 
         Returns:
             str: Signed JWT
@@ -41,14 +45,15 @@ class TestValidateToken:
             data['iat'] = now if iat is None else iat
         if exp is not None:
             data['exp'] = now + exp
-        data.update(extra)
+        if extra:
+            data.update(extra)
         if sub is None:
             del data['sub']
-        return jwt.encode(data, SECRET, algorithm=self.jwt.algorithm)
+        return jwt.encode(data, SECRET, algorithm='HS256')
 
     def test_valid_token_keep_current(self):
         """Valid token issued within the renew window keeps the current token."""
-        result = self.jwt.validate_token(self._make_token(iat=int(time.time())))
+        result = self.jwt.validate_token(self._make_token(iat=time.time()))
         assert result == ''
 
     def test_valid_token_renew(self):
@@ -57,7 +62,7 @@ class TestValidateToken:
         result = self.jwt.validate_token(self._make_token(iat=iat))
         assert result != ''
         data = jwt.decode(result, SECRET, algorithms=[self.jwt.algorithm])
-        assert data['sub'] == PASSWORD
+        assert data['sub'] == SUB
         assert data['iat'] > iat
 
     def test_missing_exp(self):
@@ -75,7 +80,7 @@ class TestValidateToken:
 
     def test_password_mismatch(self):
         with pytest.raises(jwt.PyJWTError, match='Password incorrect'):
-            self.jwt.validate_token(self._make_token(sub='wrong-password'))
+            self.jwt.validate_token(self._make_token(sub='wrong-sub'))
 
     def test_invalid_token(self):
         with pytest.raises(jwt.PyJWTError):
@@ -88,6 +93,11 @@ class TestValidateToken:
         assert result != ''
         data = jwt.decode(result, SECRET, algorithms=[self.jwt.algorithm])
         assert data['sub'] == ''
+
+    def test_legacy_plaintext_sub_rejected(self):
+        """A token carrying the plaintext password as sub must be rejected."""
+        with pytest.raises(jwt.PyJWTError, match='Password incorrect'):
+            self.jwt.validate_token(self._make_token(sub=PASSWORD))
 
 
 class TestCreate:
@@ -103,7 +113,67 @@ class TestCreate:
     def test_create_payload(self):
         token = self.jwt.create()
         data = jwt.decode(token, SECRET, algorithms=['HS256'])
-        assert data['sub'] == PASSWORD
+        # sub is the password digest, never the plaintext
+        assert data['sub'] == SUB
+        assert data['sub'] != PASSWORD
         assert 'iat' in data
         assert 'exp' in data
         assert data['exp'] > data['iat']
+
+    def test_create_no_password(self):
+        """Without a password the subject is empty."""
+        self.jwt.pwd = ''
+        token = self.jwt.create()
+        data = jwt.decode(token, SECRET, algorithms=['HS256'])
+        assert data['sub'] == ''
+
+
+class TestSub:
+    """
+    Tests for the JWT subject digest (_sub)
+    """
+
+    def setup_method(self):
+        self.jwt = JwtManager()
+        self.jwt.pwd = PASSWORD
+
+    def test_sub_is_versioned_sha256(self):
+        assert self.jwt._sub() == SUB
+
+    def test_sub_empty_when_no_password(self):
+        self.jwt.pwd = ''
+        assert self.jwt._sub() == ''
+
+    def test_sub_stable_across_calls(self):
+        assert self.jwt._sub() == self.jwt._sub()
+
+
+class TestValidatePwd:
+    """
+    Tests for JwtManager.validate_pwd (compare_digest semantics)
+    """
+
+    def setup_method(self):
+        self.jwt = JwtManager()
+        self.jwt.secret = SECRET
+        self.jwt.pwd = PASSWORD
+
+    def test_correct_password_returns_token(self):
+        token = self.jwt.validate_pwd(PASSWORD)
+        data = jwt.decode(token, SECRET, algorithms=[self.jwt.algorithm])
+        assert data['sub'] == SUB
+
+    def test_wrong_password_raises(self):
+        with pytest.raises(jwt.PyJWTError, match='Password incorrect'):
+            self.jwt.validate_pwd('wrong')
+
+    def test_empty_password_with_configured_pwd_raises(self):
+        """Empty input must not pass when a password is configured."""
+        with pytest.raises(jwt.PyJWTError, match='Password incorrect'):
+            self.jwt.validate_pwd('')
+
+    def test_empty_password_no_pwd_configured_creates(self):
+        """Empty password matches an unconfigured password (open mode)."""
+        self.jwt.pwd = ''
+        token = self.jwt.validate_pwd('')
+        assert token != ''

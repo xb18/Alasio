@@ -15,6 +15,12 @@ if TYPE_CHECKING:
 
 
 class BaseTopic(AsyncReactiveCallback, BaseMixin, metaclass=SingletonNamed):
+    # Topic-level electron restriction: when True, subscribing to this
+    # topic and every rpc under it requires a valid electron token on the
+    # connection (verified at operation time, never cached). Default
+    # topics are public; mark the sensitive ones explicitly.
+    REQUIRE_ELECTRON = False
+
     def __init__(self, conn_id, server: "WebsocketTopicServer"):
         """
         Create a data topic, that supports subscribe/unsubscribe
@@ -28,6 +34,19 @@ class BaseTopic(AsyncReactiveCallback, BaseMixin, metaclass=SingletonNamed):
 
     def __str__(self):
         return f'{self.topic_name()}({self.conn_id})>'
+
+    def _check_electron(self):
+        """
+        Verify the connection's electron token in real time.
+
+        Raises:
+            ElectronOnlyError: When the connection has no valid token
+        """
+        from alasio.backend.mpipe.token_backend import token_table
+        from alasio.backend.reactive.event import ElectronOnlyError
+
+        if not token_table.verify(self.server.auth_token):
+            raise ElectronOnlyError('Electron token required')
 
     @async_reactive
     async def data(self):
@@ -126,8 +145,14 @@ class BaseTopic(AsyncReactiveCallback, BaseMixin, metaclass=SingletonNamed):
             await self.server.send(event)
             return
 
-        # RPC call
+        # Electron check must happen BEFORE the call executes (never
+        # inside the method body): a rejected request never ran, so a
+        # renewal retry is a first execution, not a re-execution
+        # (idempotency). Inside the try so the existing except branch
+        # returns the error response carrying the rpc_id.
         try:
+            if method.require_electron or self.REQUIRE_ELECTRON:
+                self._check_electron()
             await method.call_async(self, value)
         except (ValidationError, DecodeError, UnicodeDecodeError, AccessDenied, RpcValueError) as e:
             # input errors

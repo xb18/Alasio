@@ -321,7 +321,7 @@ describe("TestMessageDispatch", () => {
   });
 
   it("logs non-binary text messages instead of throwing", () => {
-    // Regression test for doc §8.5.3: decode used to run outside the try
+    // Regression test: decode used to run outside the try
     // block, so a text frame (non-ArrayBuffer) reached TextDecoder.decode
     // and threw TypeError out of the event callback. Decode is now inside
     // the try block: the error is logged and the callback stays alive.
@@ -399,7 +399,7 @@ describe("TestTopicDataEvents", () => {
   });
 
   it("recovers from null topic data when a path event arrives", () => {
-    // Regression test for doc §8.5.1: a root set to null used to make
+    // Regression test: a root set to null used to make
     // every later path set/add silently fail — deepSet(null, ...) threw
     // TypeError which onMessage caught and logged. Path events now reset
     // non-object topic data to an empty container before applying.
@@ -612,9 +612,44 @@ describe("TestReconnect", () => {
     FakeWebSocket.last!.serverOpen();
     FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConnState", o: "full", v: { lang: "en-US" } }));
 
-    FakeWebSocket.last!.serverClose(4002);
+    FakeWebSocket.last!.serverClose(4003);
     expect(invalidateAll).toHaveBeenCalledTimes(1);
     expect(client.topics).toEqual({});
+  });
+
+  it("reconnects on close code 4002 without goto or invalidateAll", () => {
+    // 4002 = electron token rotated and evicted: standard reconnect only
+    // (red line: 4002 never refreshes the page).
+    const client = new WebsocketManager();
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "ConnState", o: "full", v: { lang: "en-US" } }));
+
+    FakeWebSocket.last!.serverClose(4002);
+    expect(goto).not.toHaveBeenCalled();
+    expect(invalidateAll).not.toHaveBeenCalled();
+    // topic data kept (only readiness cleared), reconnect scheduled
+    expect(client.topics.ConnState).toEqual({ lang: "en-US" });
+    expect(client.topicReady).toEqual({});
+    vi.advanceTimersByTime(1000);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  it("renews the electron token when the server sends the renew control message", async () => {
+    // The control message { t: "auth", o: "full", v: "renew" } must
+    // trigger a renewal and never touch topic state.
+    const { renewalCoordinator } = await import("./client.svelte");
+    const renewSpy = vi.spyOn(renewalCoordinator, "renew").mockReturnValue(Promise.resolve(true));
+
+    const client = new WebsocketManager();
+    client.connect();
+    FakeWebSocket.last!.serverOpen();
+    FakeWebSocket.last!.serverMessage(JSON.stringify({ t: "auth", o: "full", v: "renew" }));
+
+    expect(renewSpy).toHaveBeenCalledTimes(1);
+    // no topic state was created for the control topic
+    expect(client.topics).toEqual({});
+    renewSpy.mockRestore();
   });
 });
 

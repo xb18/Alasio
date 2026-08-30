@@ -9,7 +9,9 @@ class RequestEvent(Struct, omit_defaults=True):
     # Operation.
     # operation can be omitted, if so, operation is considered to be "sub"
     # if operation is "sub", operation should be omitted
-    o: Literal['sub', 'unsub', 'rpc'] = 'sub'
+    # if operation is "auth", the message carries a one-time renewal code
+    # in "v" to renew the connection's electron token
+    o: Literal['sub', 'unsub', 'rpc', 'auth'] = 'sub'
     # Function, RPC function Name.
     # if operation is "sub" or "unsub", "f" should be omitted
     f: str = ''
@@ -47,8 +49,24 @@ class ResponseEvent(Struct, omit_defaults=True):
 
 class AccessDenied(Exception):
     """
-    Internal error that raises when RequestEvent is not allowed.
-    This error won't be exposed to frontend.
+    Error raised when a RequestEvent is not allowed (e.g. unknown topic,
+    restricted topic or restricted rpc without a valid electron token).
+
+    The message keeps debuggable text: the rejection reason plus the
+    topic / rpc name (e.g. 'Topic requires electron: Preview',
+    'RPC require_electron: restart'). It must never contain tokens,
+    secrets, paths or internal state. The error message is sent
+    to the frontend through send_error when the client subscribed the
+    error topic.
+    """
+    pass
+
+
+class ElectronOnlyError(AccessDenied):
+    """
+    AccessDenied for electron-restricted operations: the connection does
+    not carry a valid electron token (or it was evicted by rotation).
+    The frontend recognizes this error by name to trigger a renewal.
     """
     pass
 

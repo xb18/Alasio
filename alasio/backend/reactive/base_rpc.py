@@ -6,12 +6,17 @@ SIG_EMPTY = inspect.Signature.empty
 
 
 class RPCMethod:
-    def __init__(self, func):
+    def __init__(self, func, require_electron=False):
         """
         Args:
             func (callable):
+            require_electron (bool): Whether this rpc needs a valid
+                electron token (X-Alasio-Token verified against the
+                backend token table) before it may execute. Defaults to
+                False.
         """
         self.func = func
+        self.require_electron = require_electron
         # key: arg name (without "self"), value: arg default,
         # if arg has no default, value is SIG_EMPTY
         self.dict_default = {}
@@ -94,7 +99,7 @@ class RPCMethod:
         return await self.func(instance, **kwargs)
 
 
-def rpc(func):
+def rpc(func=None, *, require_electron=False):
     """
     A decorator that transforms a method into an RPCMethod object and marks it for registration.
 
@@ -105,15 +110,31 @@ def rpc(func):
     - If an RPC call raises error,
         error will be converted to error message and error response will be sent.
 
+    Args:
+        func (callable): The method to decorate
+        require_electron (bool): Mark the rpc as electron-only: the
+            connection must carry a valid electron token (verified before
+            the call executes, never inside the method body) or the call
+            is rejected with ElectronOnlyError. Defaults to False.
+
     Examples:
         class ConfigScan(BaseTopic):
             @rpc
             async def config_add(self, name: str, mod: str):
                 pass
+
+        class ConnState(BaseTopic):
+            @rpc(require_electron=True)
+            async def restart(self):
+                pass
     """
+    if func is None:
+        # used as @rpc(require_electron=True)
+        return lambda f: rpc(f, require_electron=require_electron)
+
     # Instead of just setting a flag, we wrap it in an RPCMethod instance immediately.
     # This pre-calculates the parameter processors.
-    method = RPCMethod(func)
+    method = RPCMethod(func, require_electron=require_electron)
 
     # Store the instance on a special attribute of the original function.
     # The metaclass or __init_subclass__ will find this.

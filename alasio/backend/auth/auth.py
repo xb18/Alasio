@@ -1,9 +1,13 @@
+import hashlib
+import hmac
 import time
 
 import jwt
 import msgspec
+import trio
 from starlette import status
 from starlette.exceptions import HTTPException
+from starlette.requests import Request
 from typing_extensions import Annotated
 
 from alasio.backend.auth.fail2ban import Fail2Ban
@@ -23,7 +27,16 @@ class JwtManager:
 
     @cached_property
     def pwd(self) -> str:
-        return ''
+        """
+        The web ui password from deploy.yaml (Backend.Password).
+
+        Cached: changing the password requires a backend restart to take
+        effect. Empty string means no password is configured; the
+        DeploymentGateMiddleware then refuses every web access except
+        requests carrying a valid electron token.
+        """
+        from alasio.deploy.config.model import DeployConfig
+        return DeployConfig().config.data.Backend.Password or ''
 
     @cached_property
     def secret(self):
@@ -32,6 +45,20 @@ class JwtManager:
             bytes:
         """
         return AlasioKeyTable('gui').jwt_secret
+
+    def _sub(self):
+        """
+        JWT subject: never the plaintext password (the payload is base64
+        readable, e.g. in DevTools). '' when no password is configured,
+        otherwise a versioned sha256 digest of the password.
+
+        Returns:
+            str:
+        """
+        pwd = self.pwd
+        if not pwd:
+            return ''
+        return 'v1:' + hashlib.sha256(pwd.encode()).hexdigest()
 
     def create(self):
         """
@@ -43,7 +70,7 @@ class JwtManager:
         # create
         now = int(time.time())
         exp = now + 3600 * self.expire_hours
-        data = {'sub': self.pwd, 'iat': now, 'exp': exp}
+        data = {'sub': self._sub(), 'iat': now, 'exp': exp}
         token = jwt.encode(data, secret, algorithm=self.algorithm)
         return token
 
@@ -58,7 +85,8 @@ class JwtManager:
         Raises:
             jwt.PyJWTError: If password incorrect
         """
-        if pwd != self.pwd:
+        # constant-time comparison to avoid a timing side channel
+        if not hmac.compare_digest(pwd, self.pwd):
             raise jwt.PyJWTError('Password incorrect')
         return self.create()
 
@@ -95,7 +123,7 @@ class JwtManager:
             raise jwt.PyJWTError('Missing sub') from None
 
         # check password
-        if sub != self.pwd:
+        if sub != self._sub():
             raise jwt.PyJWTError('Password incorrect')
 
         # renew token
@@ -115,8 +143,30 @@ class LoginRequest(msgspec.Struct):
     pwd: str = ''
 
 
+def _secure_cookie(request: Request) -> bool:
+    """
+    Cookie secure flag formula: secure = (https or loopback).
+
+    secure is a browser behavior constraint only (the browser refuses to
+    store a Secure cookie sent over a plaintext non-loopback origin); it
+    is not a security mechanism, the electron layer is the real defense.
+    Remote plaintext http logins need secure=False to be usable.
+
+    Args:
+        request (Request):
+
+    Returns:
+        bool: True when the request came over https or from a loopback host
+    """
+    if request.url.scheme == 'https':
+        return True
+    host = request.url.hostname or ''
+    return host in ('127.0.0.1', '::1', 'localhost')
+
+
 @router.post('/login')
 async def auth_login(
+        req: Request,
         request: LoginRequest,
         cookie: SetCookie,
         fail2ban: Annotated[Fail2Ban, Depends(Fail2Ban('/login'))],
@@ -125,38 +175,62 @@ async def auth_login(
     try:
         new = JWT_MANAGER.validate_pwd(request.pwd)
     except jwt.PyJWTError:
+        # failure delay injection: slow single-point brute force down to
+        # ~2 attempts/s, the async sleep does not block other requests
+        await trio.sleep(0.5)
         raise fail2ban.record_failure()
 
     # success
     fail2ban.record_success()
     cookie.set_cookie(
         key='alasio_token', value=new, max_age=JWT_MANAGER.expire_hours * 3600,
-        httponly=True, samesite="strict", secure=True,
+        httponly=True, samesite="strict", secure=_secure_cookie(req),
     )
 
 
 @router.get('/renew')
 async def auth_renew(
-        token: Annotated[str, Cookie('alasio_token', default='')],
+        request: Request,
+        token: Annotated[str, Cookie('alasio_token', '')],
         cookie: SetCookie,
 ):
-    try:
-        new = JWT_MANAGER.validate_token(token)
-    except jwt.PyJWTError:
-        if JWT_MANAGER.pwd:
+    # Electron exemption: only the local Electron network layer can supply
+    # a token present in the backend token table (X-Alasio-Token is
+    # injected by webRequest and never enters the page JS). A matching
+    # token means the request necessarily comes from this machine, so the
+    # password check is skipped entirely (login exists to defend remote
+    # access, not to gate the local client). A stale/damaged JWT cookie
+    # is simply overwritten by the freshly issued one.
+    from alasio.backend.mpipe.token_backend import token_table
+    if token_table.verify_header(request):
+        new = JWT_MANAGER.create()
+    else:
+        # Without a configured password a JWT is only ever issued through
+        # the electron exemption above (v4.16: no password -> only the
+        # local Electron network layer may authenticate). The
+        # no-password auto-issue inside validate_token serves the login
+        # layer (ws handshake / gate middleware) and must not mint
+        # tokens on this endpoint.
+        if not JWT_MANAGER.pwd:
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED,
                 # detail must be quoted to become a valid json
                 detail='"Token invalid or expired"',
                 headers={'WWW-Authenticate': 'Bearer'},
             ) from None
-        else:
-            # no password, treat any JWT as success
-            new = JWT_MANAGER.create()
+        try:
+            new = JWT_MANAGER.validate_token(token)
+        except jwt.PyJWTError:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED,
+                # detail must be quoted to become a valid json
+                detail='"Token invalid or expired"',
+                headers={'WWW-Authenticate': 'Bearer'},
+            ) from None
 
     # success
     if new:
         cookie.set_cookie(
             key='alasio_token', value=new, max_age=JWT_MANAGER.expire_hours * 3600,
-            httponly=True, samesite="strict", secure=True,
+            httponly=True, samesite="strict", secure=_secure_cookie(request),
         )

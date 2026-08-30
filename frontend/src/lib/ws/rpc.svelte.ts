@@ -1,6 +1,6 @@
 import { untrack } from "svelte";
 import { toast } from "svelte-sonner";
-import { websocketClient } from "./client.svelte";
+import { renewalCoordinator, websocketClient } from "./client.svelte";
 import type { RequestEvent } from "./event";
 
 /**
@@ -111,8 +111,9 @@ export function createRpc(
     isOpen = true;
   };
 
-  // Perform an RPC call
-  const call = (func: string, args: any = {}, callbacks?: CallCallbacks) => {
+  // Perform an RPC call. `isRetry` marks a call spawned by the renewal
+  // retry path: a retried call never retries again (exactly once).
+  const call = (func: string, args: any = {}, callbacks?: CallCallbacks, isRetry = false) => {
     errorMsg = null;
     successMsg = null;
 
@@ -142,6 +143,18 @@ export function createRpc(
         errorMsg = errMessage;
         toast.error(`RPC call error on topic="${topic}", func="${func}"`, { description: errorMsg });
         callbacks?.onError?.(errMessage);
+        // Failure trigger: an electron-restricted rpc was
+        // rejected because the connection token was rotated away. Renew
+        // the token, then retry the original call exactly once. The
+        // retried call is marked isRetry so a second failure is not
+        // retried again (red line). The rejected call never
+        // executed server-side (check happens before the method body),
+        // so the retry is a first execution.
+        if (!isRetry && errMessage.includes("ElectronOnlyError")) {
+          void renewalCoordinator.renew().then((ok) => {
+            if (ok) call(func, args, callbacks, true);
+          });
+        }
       },
     });
 

@@ -1,7 +1,8 @@
 import { ChildProcess, spawn } from "child_process";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, session } from "electron";
 import kill from "tree-kill";
 import { IPC_BACKEND_LOG, IPC_BACKEND_READY } from "../shared/ipc";
+import { acceptAnnouncement, parseAnnouncement } from "./announcement";
 import { appState } from "./app-state";
 
 export enum ShutdownStage {
@@ -19,10 +20,50 @@ const BACKEND_START_TIMEOUT = 30_000;
 let backendProcess: ChildProcess | null = null;
 let mainWindow: BrowserWindow | null = null;
 
+// Electron-layer token state:
+// - authToken: the currently accepted token from the supervisor's stdout
+//   announcements. Token lifetime = supervisor lifetime: cleared on every
+//   child exit, before any new spawn.
+// - backendReady: stderr observed hypercorn's "Running on http".
+// The app UI is only released (maybeOpenApp) when BOTH conditions hold:
+// authToken non-null means an announcement was received from the CURRENT
+// alive supervisor, so the injected token is guaranteed to already be in
+// the new backend's token table (seeded through spawn args before serve).
+let authToken: string | null = null;
+let backendReady = false;
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function setMainWindow(window: BrowserWindow) {
   mainWindow = window;
+}
+
+/**
+ * Register the webRequest token injection for http:// and ws:// requests
+ * to the local backend. Must be called once after app
+ * ready; the callback closure reads the live authToken variable, so the
+ * announcement parser only needs to update the variable, no re-registration.
+ *
+ * The host:port match covers both http:// and ws:// (Electron 22's
+ * onBeforeSendHeaders intercepts WebSocket upgrade handshakes, Phase 0
+ * spike verified). authToken is null while the backend is not ready or
+ * already exited: nothing is injected.
+ */
+export function registerTokenInjection(): void {
+  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    try {
+      const url = new URL(details.url);
+      const local = url.hostname === "127.0.0.1" && url.port === String(appState.backendPort);
+      if (local && authToken) {
+        callback({ requestHeaders: { ...details.requestHeaders, "X-Alasio-Token": authToken } });
+      } else {
+        callback({ requestHeaders: details.requestHeaders });
+      }
+    } catch {
+      // unparsable url, pass through
+      callback({ requestHeaders: details.requestHeaders });
+    }
+  });
 }
 
 /**
@@ -66,14 +107,24 @@ export function startBackend(
     // --host/--port must be passed explicitly: command-line args take
     // priority over the deploy.yaml Backend section, and without --port the
     // backend would fall back to hypercorn's default 8000.
-    const child = spawn(pythonExecutable, ["gui.py", "--host", backendHost, "--port", String(backendPort)], {
-      cwd: rootPath,
-      // stdin is piped so graceful shutdown can be requested through it
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    // --electron switches the supervisor into electron mode: it generates /
+    // rotates / announces the token and sets ELECTRON=1 for the whole
+    // backend chain. Without it no token exists and sensitive APIs stay
+    // locked (403).
+    const child = spawn(
+      pythonExecutable,
+      ["gui.py", "--host", backendHost, "--port", String(backendPort), "--electron"],
+      {
+        cwd: rootPath,
+        // stdin is piped so graceful shutdown can be requested through it
+        stdio: ["pipe", "pipe", "pipe"],
+        // python block-buffers stdout on a pipe; unbuffered mode makes the
+        // token announcements (and supervisor logs) reach us immediately
+        env: { ...process.env, PYTHONUNBUFFERED: "1" },
+      },
+    );
     backendProcess = child;
 
-    let isReady = false;
     let settled = false;
 
     const settle = (error?: Error) => {
@@ -96,22 +147,18 @@ export function startBackend(
       settle(new Error(`Backend startup timed out after ${BACKEND_START_TIMEOUT} ms`));
     }, BACKEND_START_TIMEOUT);
 
-    // Forward logs to the renderer and watch for hypercorn's ready message.
-    // The supervisor prints "[Supervisor] Running on PID: xxx" to stdout before
-    // the backend subprocess is even spawned, so we match the exact hypercorn
-    // message "Running on http://..." (printed to stderr) instead of a plain
-    // "Running on". Both streams are watched in case hypercorn logging moves.
-    const handleOutput = (data: Buffer) => {
-      // Only push logs before backend is ready (prevent memory growth)
-      if (isReady) return;
-
-      const text = data.toString();
-      mainWindow?.webContents.send(IPC_BACKEND_LOG, text);
-
-      if (text.includes("Running on http")) {
-        isReady = true;
-        mainWindow?.webContents.send(IPC_BACKEND_READY);
+    /**
+     * Release the app UI only when the gate holds: a token from the current
+     * supervisor AND hypercorn up. authToken non-null ⇔ an announcement of
+     * the currently alive supervisor was received (exit clears it), and the
+     * announcement is emitted before the backend spawn, so by the time
+     * "Running on http" arrives the token is already seeded into the table.
+     */
+    const maybeOpenApp = () => {
+      if (settled) return;
+      if (authToken && backendReady) {
         settle();
+        mainWindow?.webContents.send(IPC_BACKEND_READY);
         // Backend is up: push the current language/theme so the backend
         // persists them into deploy.yaml (idempotent: no write when the
         // value already matches).
@@ -119,13 +166,67 @@ export function startBackend(
       }
     };
 
-    child.stdout?.on("data", handleOutput);
-    child.stderr?.on("data", handleOutput);
+    // stdout: line-buffered token announcement parsing. The stream mixes
+    // supervisor mprint output and (before ready) backend prints; data
+    // chunks may split lines, so accumulate and split on newlines. Every
+    // complete line goes through parseAnnouncement first (chained
+    // validation); announcement lines are never forwarded to the
+    // renderer (the begin announcement carries the electron token, which
+    // must never enter the renderer JS environment). The forward filter
+    // is line-based, so a token line split across chunks is filtered too.
+    let stdoutBuffer = "";
+    child.stdout?.on("data", (data: Buffer) => {
+      stdoutBuffer += data.toString();
+      let newlineIndex: number;
+      while ((newlineIndex = stdoutBuffer.indexOf("\n")) >= 0) {
+        const line = stdoutBuffer.slice(0, newlineIndex);
+        stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
+        const announcement = parseAnnouncement(line);
+        if (!announcement) {
+          // non-announcement lines go to the loading page log (before ready)
+          if (!backendReady) {
+            mainWindow?.webContents.send(IPC_BACKEND_LOG, line + "\n");
+          }
+          continue;
+        }
+        const next = acceptAnnouncement(authToken, announcement.old, announcement.next);
+        if (next) {
+          authToken = next;
+          maybeOpenApp();
+        }
+      }
+    });
+
+    // stderr: hypercorn prints "Running on http://..." here (supervisor
+    // logs also land here before ready). Ready detection is exact enough
+    // for the gate: the message only appears once the backend serves.
+    child.stderr?.on("data", (data: Buffer) => {
+      const text = data.toString();
+      if (!backendReady) {
+        mainWindow?.webContents.send(IPC_BACKEND_LOG, text);
+        if (text.includes("Running on http")) {
+          backendReady = true;
+          maybeOpenApp();
+        }
+      }
+    });
 
     child.on("error", (err) => settle(err));
 
     child.on("exit", (code) => {
-      if (!isReady) {
+      // Token lifetime = supervisor lifetime: clear unconditionally, and
+      // BEFORE any new spawn (automatic respawn happens in the exit
+      // callback of the old process). Even a fully ready backend loses its
+      // token on exit; the next supervisor announces a fresh one. Only
+      // clear when this child is still the current backend: a stale exit
+      // event from a previous spawn (retry raced with the kill) must not
+      // wipe the state of the newly spawned backend.
+      if (backendProcess === child) {
+        authToken = null;
+        backendReady = false;
+        backendProcess = null;
+      }
+      if (!settled) {
         settle(new Error(`Backend exited before ready (code: ${code})`));
       }
     });

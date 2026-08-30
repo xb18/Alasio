@@ -20,12 +20,12 @@ class BaseLoggerTest:
         """
         # Store original env values
         original_root = env.PROJECT_ROOT
-        original_electron = env.ELECTRON_SECRET
+        original_electron = env.ELECTRON
 
         # Create temp directory for test logs
         self.test_dir = PathStr.new(__file__).uppath(1)
         env.PROJECT_ROOT = self.test_dir
-        env.ELECTRON_SECRET = None
+        env.ELECTRON = ""
 
         # init fd
         writer = LogWriter()
@@ -40,7 +40,7 @@ class BaseLoggerTest:
 
         # Restore original env values
         env.PROJECT_ROOT = original_root
-        env.ELECTRON_SECRET = original_electron
+        env.ELECTRON = original_electron
 
         # Clean up log directory
         log_dir = self.test_dir / 'log'

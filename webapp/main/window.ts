@@ -51,6 +51,23 @@ export function createWindow(): BrowserWindow {
     }
   });
 
+  // Navigation interception: the window only
+  // ever loads the app://bundle (or the dev server) URL. Any other
+  // navigation — a compromised renderer steering the window to an
+  // external page — is blocked. In-app navigation happens inside the
+  // iframe (client-side routing), so the top frame never needs to move.
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    const current = mainWindow?.webContents.getURL() ?? "";
+    if (url !== current) {
+      event.preventDefault();
+    }
+  });
+
+  // window.open / target=_blank from the renderer: deny everything. The
+  // embedded app never needs popups; external links are handled by the
+  // frontend itself (if any) or simply do not work.
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
   return mainWindow;
 }
 

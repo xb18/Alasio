@@ -23,20 +23,26 @@ class JwtError(msgspec.Struct):
 
 def get_client_ip(request: Request) -> str:
     """
-    Get client IP address
+    Get the TCP peer IP of the request.
+
+    Only request.client.host is trusted: the backend is a direct service
+    (Electron / browser connect straight to the port, no reverse proxy),
+    and the TCP peer address is given by the kernel so it cannot be
+    spoofed within a single connection, while X-Forwarded-For /
+    X-Real-IP are application headers anyone can forge. Per-IP banning
+    would degrade to "shared counting per proxy IP" if a proxy is ever
+    introduced.
+
+    Args:
+        request (Request):
+
+    Returns:
+        str: The peer IP, or '127.0.0.1' when the client is unknown
     """
-    # check X-Forwarded-For header (for proxies/load balancers)
-    forwarded_for = request.headers.get('X-Forwarded-For')
-    if forwarded_for:
-        forwarded_for, _, _ = forwarded_for.partition(',')
-
-    # check X-Real-IP header
-    real_ip = request.headers.get('X-Real-IP')
-    if real_ip:
-        return real_ip
-
-    # use direct connection IP
-    return request.client.host if request.client else '127.0.0.1'
+    client = request.client
+    if client is None or client.host is None:
+        return '127.0.0.1'
+    return client.host
 
 
 class Fail2BanManager(metaclass=SingletonNamed):
@@ -61,6 +67,43 @@ class Fail2BanManager(metaclass=SingletonNamed):
         self.failed_attempts: "dict[str, tuple[int, float]]" = {}
         # ban storage: {ip: ban_end_time}
         self.banned_ips: "dict[str, float]" = {}
+
+        # Global failure throttling: last line of defense when per-IP
+        # banning is bypassed by a distributed attack (many real IPs).
+        # The threshold is far above normal use (a few typos) and far
+        # below brute-force throughput; an attacker can deliberately
+        # trigger the global cooldown to block everyone's login, but that
+        # also stops the attack itself. "Throttling can be used to DoS
+        # itself" is an inherent boundary of rate limiting.
+        # window: failure timestamps within this many seconds count
+        self.global_window = 300
+        # more than this many global failures in the window triggers
+        self.global_threshold = 100
+        # the login endpoint returns 429 for this many seconds
+        self.global_cooldown = 60
+        # timestamps of recent global failures
+        self.global_failures: "list[float]" = []
+        # wall time until which the global cooldown lasts (0 = inactive)
+        self.global_cool_until = 0.0
+
+    def global_blocked(self):
+        """
+        Returns:
+            bool: True when the global cooldown is active
+        """
+        return time.time() < self.global_cool_until
+
+    def record_global_failure(self):
+        """
+        Record a failure in the global window; activate the cooldown when
+        the threshold is exceeded.
+        """
+        now = time.time()
+        self.global_failures.append(now)
+        window_start = now - self.global_window
+        self.global_failures = [t for t in self.global_failures if t >= window_start]
+        if len(self.global_failures) > self.global_threshold:
+            self.global_cool_until = now + self.global_cooldown
 
     async def gc(self):
         """
@@ -111,11 +154,24 @@ class Fail2Ban:
     def check_ban(self):
         """
         Raises:
-            HTTPExceptionJson: HTTP_403_FORBIDDEN if IP banned
+            HTTPExceptionJson: HTTP_403_FORBIDDEN if IP banned,
+                HTTP_429_TOO_MANY_REQUESTS during the global cooldown
         """
         if self.ip is None:
             return
         manager = Fail2BanManager(self.name)
+
+        # global cooldown: block all logins briefly
+        if manager.global_blocked():
+            error = JwtError(
+                message='banned',
+                remain=0,
+                after=int(manager.global_cool_until - time.time()) or 1,
+            )
+            raise HTTPExceptionJson(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=error
+            )
 
         # No ban
         if self.ip not in manager.banned_ips:
@@ -128,12 +184,14 @@ class Fail2Ban:
             return
         now = time.time()
         if now < end_time:
-            # still in ban, extend end time
-            manager.banned_ips[self.ip] = now + manager.ban_duration
+            # still in ban. Note that the ban is NOT extended on access:
+            # a fixed duration, expired records are removed by gc().
+            # Extending here would let an attacker keep the ban alive
+            # forever by visiting once per ban period (login DoS).
             error = JwtError(
                 message='banned',
                 remain=0,
-                after=manager.ban_duration,
+                after=int(end_time - now) or 1,
             )
             raise HTTPExceptionJson(
                 status.HTTP_403_FORBIDDEN,
@@ -158,6 +216,10 @@ class Fail2Ban:
         assert self.ip is not None
         manager = Fail2BanManager(self.name)
         now = time.time()
+
+        # record the failure in the global window and maybe trigger the
+        # global cooldown
+        manager.record_global_failure()
 
         # first failure
         if self.ip not in manager.failed_attempts:

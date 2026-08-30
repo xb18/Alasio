@@ -13,7 +13,9 @@ export interface RequestEvent {
   // Operation.
   // operation can be omitted, if so, operation is considered to be "sub"
   // if operation is "sub", operation should be omitted
-  o?: "sub" | "unsub" | "rpc";
+  // if operation is "auth", the message carries a one-time renewal code
+  // in "v" to renew the connection's electron token
+  o?: "sub" | "unsub" | "rpc" | "auth";
   // Function, RPC function Name.
   // if operation is "sub" or "unsub", "f" should be omitted
   f?: string;

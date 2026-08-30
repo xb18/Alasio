@@ -224,6 +224,11 @@ class PreviewTask(BackgroundTask, metaclass=SingletonNamed):
 
 
 class Preview(BaseTopic):
+    # Game screen preview: electron-only (remote users must
+    # not spy on the local game screen). Subscribing to the topic and its
+    # rpcs (preview_start / preview_stop) require a valid electron token.
+    REQUIRE_ELECTRON = True
+
     cache: "PreviewTask | None" = None
 
     async def getdata(self):

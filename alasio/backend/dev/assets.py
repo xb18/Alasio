@@ -5,6 +5,27 @@ from starlette.staticfiles import StaticFiles
 
 from alasio.logger import logger
 
+# Content-Security-Policy for html responses (must stay
+# identical to the meta CSP in frontend/src/app.html: when both exist the
+# browser enforces their intersection). frame-ancestors can only be set
+# through a response header (the meta tag ignores it): it allows the
+# electron host (app://bundle) to embed the page. The script hash covers
+# the inline theme pre-paint script of frontend/src/app.html; modifying
+# that script requires recomputing the hash.
+CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'sha256-/c574zxOUzzzs52yM/ATmZ7eBGoJ3nHgHTc8O5t7jRw='; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; "
+    "connect-src 'self' ws: wss:; "
+    "font-src 'self' data:; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-src 'self'; "
+    "frame-ancestors 'self' app://bundle"
+)
+
 
 class NoCacheStaticFiles(StaticFiles):
     def file_response(self, *args, **kwargs):
@@ -20,6 +41,10 @@ class NoCacheStaticFiles(StaticFiles):
         resp.headers.setdefault('Cache-Control', 'no-cache, no-store, private, must-revalidate, max-age=0')
         resp.headers.setdefault('Expires', '0')
         resp.headers.setdefault('Pragma', 'no-cache')
+
+        # CSP on html responses (identical to the meta tag in app.html)
+        if resp.media_type == 'text/html':
+            resp.headers.setdefault('Content-Security-Policy', CSP)
 
         # GZipMiddleware
         resp = GZipResponder(resp, minimum_size=500, compresslevel=9)

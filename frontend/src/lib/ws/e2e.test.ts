@@ -116,6 +116,24 @@ const describeE2e = pythonPath ? describe : describe.skip;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * The backend now enforces the electron layer: the
+ * deployment has no password configured, so the global gate (rule A)
+ * only lets requests carrying a valid electron token through. The test
+ * backend is therefore spawned with --electron and the token announced
+ * on stdout is injected into the ws handshake header.
+ */
+class HeaderedWebSocket extends globalThis.WebSocket {
+  constructor(url: string) {
+    // undici (node's built-in WebSocket) accepts a headers option in the
+    // second argument; the token plays the role the Electron webRequest
+    // injection plays in the real client.
+    super(url, { headers: { "X-Alasio-Token": backendToken } } as any);
+  }
+}
+
+let backendToken = "";
+
 async function getFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();
@@ -148,16 +166,18 @@ async function waitFor(
 }
 
 /**
- * Spawns the backend through gui.py (same entry as the desktop app)
- * and resolves once hypercorn reports "Running on http://...".
+ * Spawns the backend through gui.py (same entry as the desktop app,
+ * with --electron so the token announcements and the electron layer are
+ * exercised) and resolves once hypercorn reports "Running on http://...".
  * The output listeners stay attached so the pipe cannot fill up.
  */
 function startBackend(python: string, port: number): Promise<ChildProcess> {
   return new Promise((resolve, reject) => {
-    const proc = spawn(python, ["gui.py", "--host", "127.0.0.1", "--port", String(port)], {
+    const proc = spawn(python, ["gui.py", "--host", "127.0.0.1", "--port", String(port), "--electron"], {
       cwd: REPO_ROOT,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
+      env: { ...process.env, PYTHONUNBUFFERED: "1" },
     });
 
     let stdout = "";
@@ -171,8 +191,14 @@ function startBackend(python: string, port: number): Promise<ChildProcess> {
 
     const onData = (stream: "stdout" | "stderr") => (data: Buffer) => {
       const text = data.toString();
-      if (stream === "stdout") stdout += text;
-      else stderr += text;
+      if (stream === "stdout") {
+        stdout += text;
+        // parse the chained token announcement (the initial begin form)
+        const match = /\[Supervisor\] token_set:begin:([0-9a-f]{64})/.exec(stdout);
+        if (match) backendToken = match[1];
+      } else {
+        stderr += text;
+      }
       if (text.includes("Running on http")) {
         settle(() => resolve(proc));
       }
@@ -260,7 +286,8 @@ describeE2e("TestBackendE2e", () => {
     proc = await startBackend(pythonPath!, port);
 
     client = new TestClient(`ws://127.0.0.1:${port}/api/ws`);
-    vi.stubGlobal("WebSocket", globalThis.WebSocket);
+    expect(backendToken).toMatch(/^[0-9a-f]{64}$/);
+    vi.stubGlobal("WebSocket", HeaderedWebSocket);
     client.connect();
     await waitFor(() => client.connectionState === "open", 15_000, "connection open");
   });

@@ -28,7 +28,7 @@ class ParentProcessExited(Exception):
     """
 
 
-def _backend_process_entry(conn, args, backend_entry):
+def _backend_process_entry(conn, args, backend_entry, tokens=()):
     """
     Entry point for the backend process.
 
@@ -46,6 +46,10 @@ def _backend_process_entry(conn, args, backend_entry):
         args (list[str] | None): Command line args for the backend
         backend_entry (Callable): The backend entry callable, usually a
             subclass staticmethod
+        tokens (tuple[str]): Initial token window from the supervisor
+            (empty when not started with --electron). Seeded into the
+            backend token table before serve, so the table is populated
+            before any request can arrive (single-writer constraint).
     """
     import builtins
     builtins.__mpipe_conn__ = conn
@@ -64,6 +68,13 @@ def _backend_process_entry(conn, args, backend_entry):
         sys.stdin = open(os.devnull, 'r', encoding='utf-8')
     except OSError:
         pass
+
+    # Seed the token table before the backend (and its mpipe_recv_loop
+    # thread, started in get_shutdown_trigger) runs: this is the single
+    # writer of the lock-free BackendTokenTable.
+    if tokens:
+        from alasio.backend.mpipe.token_backend import token_table
+        token_table.seed_from_supervisor(tokens)
 
     try:
         backend_entry(args)
@@ -102,6 +113,25 @@ class Supervisor:
 
         # Communication pipe - supervisor's end only
         self.parent_conn: "multiprocessing.PipeConnection | None" = None
+
+        # Whether this supervisor was started with --electron. Only then
+        # tokens are generated / rotated / announced and ELECTRON=1 is set
+        # for the backend chain.
+        self.is_electron = False
+
+        # Guards every parent_conn.send_bytes on the supervisor side:
+        # rotation delivery (through the token manager), stdin forwarding
+        # and graceful shutdown share one writer lock (concurrent writes
+        # on a Pipe corrupt the stream).
+        self._send_lock = threading.Lock()
+
+        # Token manager: owns the rotation / announcement state and
+        # delegates all pipe writes to send_bytes_to_backend() (the
+        # supervisor owns the pipe). Created in __init__ so start_backend
+        # and handle_backend_message work standalone; only active in
+        # electron mode (run() calls init_token / start_rotation).
+        from alasio.backend.mpipe.token_supervisor import SupervisorTokenManager
+        self.token_manager = SupervisorTokenManager(self)
 
         # Flag to indicate a restart is requested
         self.restart_requested = False
@@ -210,9 +240,12 @@ class Supervisor:
         # Note that we use daemon=False here, because backend needs to spawn workers
         # and python does not allow daemonic processes to have children
         # It's fine without daemon as backend will exit if pipe broken
+        # Token window for the new backend (empty without --electron: the
+        # backend token table stays empty and sensitive APIs are locked).
+        tokens = self.token_manager.window()
         self.process = ctx.Process(
             target=_backend_process_entry,
-            args=(child_conn, args, self.backend_entry),
+            args=(child_conn, args, self.backend_entry, tokens),
             name='alasio-backend',
             daemon=False,
         )
@@ -223,6 +256,12 @@ class Supervisor:
         # hang. The thread is restarted by recv_loop once the backend has
         # finished starting up, so buffered commands are not lost.
         self.stop_stdin_listener()
+        # ELECTRON=1 must be set before process.start(): multiprocessing
+        # spawn inherits the parent environment, so the whole chain
+        # (backend → worker → worker children) gets it. Only set in
+        # electron mode.
+        if self.is_electron:
+            os.environ['ELECTRON'] = '1'
         try:
             self.process.start()
         finally:
@@ -385,7 +424,7 @@ class Supervisor:
                 self.stop_requested = True
                 if self.parent_conn:
                     try:
-                        self.parent_conn.send_bytes(line)
+                        self.send_bytes_to_backend(line)
                     except (EOFError, OSError):
                         # pipe broken, backend is gone, nothing to forward
                         pass
@@ -397,13 +436,33 @@ class Supervisor:
             # without touching this process). The listener keeps running.
             if self.parent_conn:
                 try:
-                    self.parent_conn.send_bytes(line)
+                    self.send_bytes_to_backend(line)
                 except (EOFError, OSError):
                     # pipe broken, backend is gone, nothing to forward
                     pass
             return False
         # Unknown input is silently discarded
         return False
+
+    def send_bytes_to_backend(self, data):
+        """
+        Send bytes to the backend through the pipe, guarded by the shared
+        send lock (rotation delivery, stdin forwarding and graceful
+        shutdown are concurrent writers on the same pipe; concurrent
+        send_bytes on a multiprocessing Pipe corrupt the stream).
+
+        Args:
+            data (bytes):
+
+        Returns:
+            bool: True when the message was written, False when no
+                backend pipe is attached (no backend running)
+        """
+        if self.parent_conn is None:
+            return False
+        with self._send_lock:
+            self.parent_conn.send_bytes(data)
+        return True
 
     def stop_stdin_listener(self):
         """
@@ -506,6 +565,9 @@ class Supervisor:
         elif msg == b'command:stop':
             mprint("Backend requested stop")
             self.handle_sigint(signal.SIGINT, None)
+        elif msg.startswith(b'token_ack:'):
+            # Backend confirmed a rotated token; wake the rotation thread
+            self.token_manager.handle_token_ack(msg)
         else:
             mprint(f"WARNING: Unknown command from backend: {msg}")
 
@@ -573,7 +635,7 @@ class Supervisor:
 
         if self.parent_conn:
             try:
-                self.parent_conn.send_bytes(b'command:stop')
+                self.send_bytes_to_backend(b'command:stop')
             except Exception as e:
                 mprint(f"ERROR: Failed to sending stop to backend: {e}")
 
@@ -663,6 +725,14 @@ class Supervisor:
             return
 
         mprint(f"Running on PID: {os.getpid()}")
+
+        # Electron mode: generate and announce T1, start the rotation
+        # thread. Without --electron no token is generated: the backend
+        # token table stays empty and sensitive APIs are locked.
+        self.is_electron = bool(args) and '--electron' in args
+        if self.is_electron:
+            self.token_manager.init_token()
+            self.token_manager.start_rotation()
 
         # Set up custom SIGINT handler to track CTRL+C count
         signal.signal(signal.SIGINT, self.handle_sigint)

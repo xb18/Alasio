@@ -98,6 +98,9 @@ def sync_task_gc(wait=8):
     MOD_JSON_CACHE.gc(wait)
     from alasio.backend.topic.mod import HISTORY_CACHE
     HISTORY_CACHE.gc(wait)
+    # renewal codes: expiry scan, the main cleanup hook
+    from alasio.backend.ws.renew import renewal_manager
+    renewal_manager.gc()
 
 
 async def task_gc(wait=8):
@@ -169,10 +172,25 @@ def create_app():
     from alasio.ext.starapi.router import StarAPI
     app = StarAPI(lifespan=lifespan)
 
+    # Global admission + login middleware: DeploymentGateMiddleware
+    # (rules A/B first: 403 / 4001, then the JWT login layer: 401).
+    # The two layers are merged into one middleware with a fixed order
+    # and must never be split or reordered (the login check relies on
+    # rule A having run first). starlette wraps the app with
+    # middlewares in reverse order of add_middleware, so the gate is
+    # the outermost layer.
+    from alasio.backend.middleware.gate import DeploymentGateMiddleware
+    app.add_middleware(DeploymentGateMiddleware)
+
     # All APIs should under /api
     # Builtin APIs
     from alasio.backend.auth import auth
     app.add_router('/api', auth.router)
+
+    # Renewal code endpoint: POST /api/ws/renew (require_login +
+    # require_electron), mounted after the auth router
+    from alasio.backend.ws import renew as ws_renew
+    app.add_router('/api', ws_renew.router)
 
     # Global websocket
     from alasio.backend.ws.topic import PreviewServer, WebsocketServer
@@ -310,6 +328,13 @@ def create_config(args=None):
     from hypercorn import Config
     config = Config()
     config.bind = [f'{host}:{port}']
+
+    # SSL wiring: when both key and cert are configured the deployment
+    # auto-enters public mode (DeploymentGateMiddleware mode detection)
+    # and https is served
+    if deploy.Backend.WebuiSSLKey and deploy.Backend.WebuiSSLCert:
+        config.ssl_keyfile = deploy.Backend.WebuiSSLKey
+        config.ssl_certfile = deploy.Backend.WebuiSSLCert
 
     # To enable assess log
     # config.accesslog = '-'

@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Alasio</title>
+    <!-- Content-Security-Policy. The theme pre-paint
+         script below is allowed through its sha256 hash (no
+         'unsafe-inline'). frame-src allows the embedded frontend at the
+         local backend (any port: the port is configurable). Modifying
+         the inline script below requires recomputing the hash. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'sha256-sxgASNsFgBHJcb1AyfshDaBMm9cm/P979ECS6ATmyfQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'self' http://127.0.0.1:*"
+    />
     %sveltekit.head%
     <script>
       // Apply the host display theme before the first paint. Without this

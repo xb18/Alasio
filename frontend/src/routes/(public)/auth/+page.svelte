@@ -11,6 +11,15 @@
   let showTip = $state(false);
   let error = $state<jwtError | null>(null);
   let password = $state("");
+  // Plaintext warning for remote http sessions (lan mode): the password
+  // and the JWT cookie travel in clear text on the network. Loopback is
+  // trustworthy, remote http is only suggested on trusted networks.
+  let insecure = $state(false);
+  {
+    const hostname = window.location.hostname;
+    const loopback = hostname === "127.0.0.1" || hostname === "::1" || hostname === "localhost";
+    insecure = window.location.protocol === "http:" && !loopback;
+  }
 
   async function login() {
     // close tip
@@ -64,6 +73,9 @@
             </Button>
           </div>
           <Input id="password" type="password" bind:value={password} />
+          {#if insecure}
+            <Help>{t.Auth.PlaintextWarning()}</Help>
+          {/if}
           {#if showTip}
             <Help>{t.Auth.PasswordTip()}</Help>
           {/if}

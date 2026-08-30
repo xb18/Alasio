@@ -250,12 +250,17 @@ class RequestASGI:
                 if inspect.isclass(func):
                     assert getattr(func, '__call__', None), 'Depends class must implement __call__()'
                     assert is_async(func.__call__), 'Depends cls.__call__() must be async'
+                elif inspect.iscoroutinefunction(func):
+                    # a plain async function (every function also has a
+                    # __call__ attribute, check iscoroutinefunction first
+                    # so async functions are not mistaken for instances)
+                    pass
+                elif getattr(func, '__call__', None):
+                    # a callable instance
+                    func = func.__call__
+                    assert is_async(func), f'Depends(func) must be async, name={name}, typehint={annotation}'
                 else:
-                    if getattr(func, '__call__', None):
-                        func = func.__call__
-                        assert is_async(func), f'Depends(func) must be async, name={name}, typehint={annotation}'
-                    else:
-                        assert is_async(func), f'Depends(func) must be async, name={name}, typehint={annotation}'
+                    assert is_async(func), f'Depends(func) must be async, name={name}, typehint={annotation}'
                 depends_di[name] = param
                 continue
             # unknown

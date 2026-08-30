@@ -73,7 +73,7 @@ class ConnState(BaseTopic):
             if self.conn_id in connections:
                 connections.remove(self.conn_id)
 
-    @rpc
+    @rpc(require_electron=True)
     async def restart(self):
         """
         Restart the entire backend

@@ -65,7 +65,7 @@ describe("TestDeepDel", () => {
   });
 
   it("deletes an array element by index, compacting the array", () => {
-    // Regression test for doc §8.5.2: array index deletion used to apply
+    // Regression test: array index deletion used to apply
     // the `delete` operator, keeping the length and leaving an undefined
     // hole. It now compacts the array with splice.
     const obj = { list: ["x", "y", "z"] };

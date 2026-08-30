@@ -2,6 +2,7 @@ import { browser } from "$app/environment";
 import { goto, invalidateAll } from "$app/navigation";
 import { deepDel, deepSet } from "./deep";
 import type { RequestEvent, ResponseEvent } from "./event";
+import { RenewalCoordinator } from "./renewal.svelte";
 import { type RpcCallbacks, type RpcOptions, createRpc } from "./rpc.svelte";
 
 /**
@@ -139,6 +140,17 @@ export class WebsocketManager {
         goto("/auth/login");
         return;
       }
+      if (event.code === 4002) {
+        // Electron token rotated and evicted: standard
+        // reconnect only — the new handshake carries a fresh token. No
+        // goto, no invalidateAll: refreshing the page on every rotation
+        // would be an infinite refresh loop when tokens never match
+        // (red line).
+        console.warn("Electron token rotated, reconnecting...");
+        this.#clearTopicReady();
+        this.#scheduleReconnect();
+        return;
+      }
       if (event.code >= 4000) {
         // Assume other 4xxx codes mean unrecoverable server error
         console.error("Unrecoverable server error. Invalidating all data via invalidateAll().");
@@ -180,6 +192,14 @@ export class WebsocketManager {
       const updates = new Map<string, ResponseEvent[]>();
 
       for (const item of events) {
+        // 0. Control messages: the server
+        // asks this connection to renew its electron token after a
+        // rotation. Handled before RPC responses and topic data, the
+        // message never touches topic state.
+        if (item.t === "auth" && item.o === "full" && item.v === "renew") {
+          renewalCoordinator.renew();
+          continue;
+        }
         // 1. Check if it's an RPC response.
         if (item.i) {
           this.#handleRpc(item);
@@ -487,6 +507,13 @@ export const websocketClient = new WebsocketManager({
   // Example of extending configuration:
   // scrollTopics: { 'custom_log': 500 },
   // defaultSubscriptions: ['audit_trail']
+});
+
+// Electron renewal coordinator bound to the ws client. The sendRaw closure
+// is deferred so the singleton can be created before websocketClient is
+// initialized (the closure only runs when a renewal submits).
+export const renewalCoordinator = new RenewalCoordinator({
+  sendRaw: (payload) => websocketClient.sendRaw(payload),
 });
 
 export type TopicClient = ReturnType<typeof websocketClient.sub>;

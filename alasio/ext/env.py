@@ -35,5 +35,6 @@ def set_project_root(root, up=0):
 
 
 # Environ
-ELECTRON_SECRET = os.environ.get("ELECTRON_SECRET", "")
+# Set to "1" by the supervisor when started with --electron; silences structlog stdout
+ELECTRON = os.environ.get("ELECTRON", "")
 CHINAC_CLOUDPHONE = os.environ.get("cloudphone", "") == "cloudphone"

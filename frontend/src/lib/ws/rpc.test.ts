@@ -209,6 +209,104 @@ describe("TestCreateRpc", () => {
   });
 });
 
+describe("TestElectronRenewalRetry", () => {
+  let context: FakeContext;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    context = new FakeContext();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("retries exactly once after a successful renewal", async () => {
+    // Failure trigger: ElectronOnlyError → renew → retry
+    // the original call exactly once; a second failure is not retried.
+    const { renewalCoordinator } = await import("./client.svelte");
+    const renewSpy = vi.spyOn(renewalCoordinator, "renew").mockResolvedValue(true);
+
+    const rpc = createRpc("ConnState", context, { pendingDelay: 0 });
+    const onError = vi.fn();
+    const onSuccess = vi.fn();
+    rpc.call("set_lang", { lang: "zh-CN" }, { onSuccess, onError });
+    const firstId = context.sent[0].i!;
+
+    // the server rejects the restricted rpc with an electron error
+    context.callbacks(firstId)!.onError("ElectronOnlyError: Electron token required");
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(renewSpy).toHaveBeenCalledTimes(1);
+
+    // the renewal resolves → the original call is retried with a fresh id
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.sent).toHaveLength(2);
+    const retry = context.sent[1];
+    expect(retry).toEqual({ t: "ConnState", o: "rpc", f: "set_lang", v: { lang: "zh-CN" }, i: expect.any(String) });
+    expect(retry.i).not.toBe(firstId);
+
+    // the retry succeeds: onSuccess fires for the retried call
+    context.callbacks(retry.i!)!.onSuccess(retry.i!);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    renewSpy.mockRestore();
+  });
+
+  it("does not retry a second ElectronOnlyError", async () => {
+    const { renewalCoordinator } = await import("./client.svelte");
+    const renewSpy = vi.spyOn(renewalCoordinator, "renew").mockResolvedValue(true);
+
+    const rpc = createRpc("ConnState", context, { pendingDelay: 0 });
+    const onError = vi.fn();
+    rpc.call("set_lang", {}, { onError });
+    const firstId = context.sent[0].i!;
+
+    context.callbacks(firstId)!.onError("ElectronOnlyError: Electron token required");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.sent).toHaveLength(2);
+
+    // second failure: no further renewal, no third attempt
+    const retryId = context.sent[1].i!;
+    context.callbacks(retryId)!.onError("ElectronOnlyError: Electron token required");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.sent).toHaveLength(2);
+    expect(renewSpy).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(2);
+    renewSpy.mockRestore();
+  });
+
+  it("does not retry when the renewal fails", async () => {
+    const { renewalCoordinator } = await import("./client.svelte");
+    const renewSpy = vi.spyOn(renewalCoordinator, "renew").mockResolvedValue(false);
+
+    const rpc = createRpc("ConnState", context, { pendingDelay: 0 });
+    rpc.call("set_lang");
+    const id = context.sent[0].i!;
+
+    context.callbacks(id)!.onError("ElectronOnlyError: Electron token required");
+    await vi.advanceTimersByTimeAsync(0);
+    // no retry after a failed renewal
+    expect(context.sent).toHaveLength(1);
+    expect(renewSpy).toHaveBeenCalledTimes(1);
+    renewSpy.mockRestore();
+  });
+
+  it("does not renew on a non-electron error", async () => {
+    const { renewalCoordinator } = await import("./client.svelte");
+    const renewSpy = vi.spyOn(renewalCoordinator, "renew").mockResolvedValue(true);
+
+    const rpc = createRpc("ConnState", context, { pendingDelay: 0 });
+    rpc.call("set_lang");
+    const id = context.sent[0].i!;
+
+    context.callbacks(id)!.onError("RpcValueError: bad input");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.sent).toHaveLength(1);
+    expect(renewSpy).not.toHaveBeenCalled();
+    renewSpy.mockRestore();
+  });
+});
+
 describe("TestCreateResilientRpc", () => {
   let stopEffect: () => void;
   let rpc: Rpc;
