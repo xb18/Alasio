@@ -5,6 +5,8 @@ import sys
 import threading
 import time
 
+from alasio.backend.entry import backend_process_entry
+
 
 def loop_until_timeout(timeout):
     end = time.time() + timeout
@@ -26,64 +28,6 @@ class ParentProcessExited(Exception):
     closed pipe: nobody is left to manage the supervisor, so the backend is
     shut down instead of being left running as an orphan.
     """
-
-
-def _backend_process_entry(conn, args, backend_entry, tokens=()):
-    """
-    Entry point for the backend process.
-
-    Runs in the child process. Sets up the pipe connection as a global
-    variable that the backend code can access, then starts the actual backend
-    application.
-
-    A module-level function instead of a bound method: the process object is
-    pickled into the child, and pickling the Supervisor instance (with its
-    cyclic process/pipe references) makes spawn hang on Windows when stdin is
-    a pipe.
-
-    Args:
-        conn (PipeConnection): Pipe connection to the supervisor
-        args (list[str] | None): Command line args for the backend
-        backend_entry (Callable): The backend entry callable, usually a
-            subclass staticmethod
-        tokens (tuple[str]): Initial token window from the supervisor
-            (empty when not started with --electron). Seeded into the
-            backend token table before serve, so the table is populated
-            before any request can arrive (single-writer constraint).
-    """
-    import builtins
-    builtins.__mpipe_conn__ = conn
-
-    # ignore SIGINT on windows because signal is send to the entire process group
-    # Supervisor should receive SIGINT and backend should ignore, then supervisor tell backend to stop
-    if sys.platform == "win32":
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGBREAK, signal.SIG_IGN)
-
-    # The child inherits the stdin pipe from the supervisor (Windows spawn
-    # inherits stdio regardless of bInheritHandles). The backend never reads
-    # stdin, but point it at devnull anyway so it can never steal commands
-    # meant for the supervisor's stdin listener.
-    try:
-        sys.stdin = open(os.devnull, 'r', encoding='utf-8')
-    except OSError:
-        pass
-
-    # Seed the token table before the backend (and its mpipe_recv_loop
-    # thread, started in get_shutdown_trigger) runs: this is the single
-    # writer of the lock-free BackendTokenTable.
-    if tokens:
-        from alasio.backend.mpipe.token_backend import token_table
-        token_table.seed_from_supervisor(tokens)
-
-    try:
-        backend_entry(args)
-    except Exception as e:
-        # Unexpected error in backend
-        print(f"[Backend] Fatal error: {e}")
-        import traceback
-        traceback.print_exc()
-    # Note that it's parent's responsibility to close pipe
 
 
 class Supervisor:
@@ -208,7 +152,10 @@ class Supervisor:
     @staticmethod
     def backend_entry(args):
         """
-        Subclasses must override this method
+        Subclasses must override this attribute with a module-level function,
+        e.g. `backend_entry = entry.backend_entry` in BackendSupervisor. The
+        function is pickled into the backend child through the spawn args,
+        so it must live in a stdlib-only module (alasio.backend.entry).
 
         Args:
             args (list[str] | None):
@@ -244,7 +191,7 @@ class Supervisor:
         # backend token table stays empty and sensitive APIs are locked).
         tokens = self.token_manager.window()
         self.process = ctx.Process(
-            target=_backend_process_entry,
+            target=backend_process_entry,
             args=(child_conn, args, self.backend_entry, tokens),
             name='alasio-backend',
             daemon=False,

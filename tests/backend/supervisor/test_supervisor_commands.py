@@ -469,13 +469,13 @@ class TestBackendProcessPickle:
     """The Supervisor instance must never be pickled into the backend child."""
 
     def test_process_args_carry_no_supervisor_instance(self):
-        from alasio.backend.supervisor import _backend_process_entry
+        from alasio.backend.entry import backend_process_entry
 
         ctx = multiprocessing.get_context('spawn')
         parent_conn, child_conn = ctx.Pipe()
         process = ctx.Process(
-            target=_backend_process_entry,
-            args=(child_conn, ['--port', '22267'], Supervisor.backend_entry),
+            target=backend_process_entry,
+            args=(child_conn, ['--port', '22267'], Supervisor.backend_entry, ()),
         )
 
         # The backend entry must be a plain function, not a bound method: a
@@ -487,6 +487,25 @@ class TestBackendProcessPickle:
 
         child_conn.close()
         parent_conn.close()
+
+    def test_backend_supervisor_entry_is_plain_function(self):
+        """
+        BackendSupervisor.backend_entry must stay a plain function when
+        accessed through an instance: a plain function assigned as a class
+        attribute is looked up as a bound method, and pickling the bound
+        method would carry the Supervisor instance (with its _thread.lock
+        fields) into the backend child.
+        """
+        import pickle
+
+        from alasio.backend.backend import BackendSupervisor
+
+        entry = BackendSupervisor().backend_entry
+        assert callable(entry)
+        assert getattr(entry, '__self__', None) is None
+        assert entry.__module__ == 'alasio.backend.entry'
+        # the entry must survive pickling without pulling the supervisor instance
+        pickle.dumps(entry)
 
     def test_supervisor_instance_not_picklable(self):
         # threading.Event contains a lock, so the Supervisor instance itself

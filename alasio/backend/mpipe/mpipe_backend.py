@@ -6,7 +6,7 @@ class MPipeBackend:
     Backend-side access to the supervisor pipe.
 
     The pipe connection is stashed on builtins.__mpipe_conn__ by the
-    backend spawn target (_backend_process_entry): the backend modules
+    backend spawn target (entry.backend_process_entry): the backend modules
     are imported by both the supervisor process and the backend process,
     so the connection cannot live in a module global at import time.
 
