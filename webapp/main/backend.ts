@@ -4,6 +4,7 @@ import kill from "tree-kill";
 import { IPC_BACKEND_LOG, IPC_BACKEND_READY } from "../shared/ipc";
 import { acceptAnnouncement, parseAnnouncement } from "./announcement";
 import { appState } from "./app-state";
+import { LineSplitter } from "./line-splitter";
 
 export enum ShutdownStage {
   WaitingGraceful = "waiting",
@@ -168,47 +169,50 @@ export function startBackend(
 
     // stdout: line-buffered token announcement parsing. The stream mixes
     // supervisor mprint output and (before ready) backend prints; data
-    // chunks may split lines, so accumulate and split on newlines. Every
-    // complete line goes through parseAnnouncement first (chained
-    // validation); announcement lines are never forwarded to the
+    // chunks may split lines, so LineSplitter accumulates and splits on
+    // newlines. Every complete line goes through parseAnnouncement first
+    // (chained validation); announcement lines are never forwarded to the
     // renderer (the begin announcement carries the electron token, which
     // must never enter the renderer JS environment). The forward filter
     // is line-based, so a token line split across chunks is filtered too.
-    let stdoutBuffer = "";
-    child.stdout?.on("data", (data: Buffer) => {
-      stdoutBuffer += data.toString();
-      let newlineIndex: number;
-      while ((newlineIndex = stdoutBuffer.indexOf("\n")) >= 0) {
-        const line = stdoutBuffer.slice(0, newlineIndex);
-        stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
-        const announcement = parseAnnouncement(line);
-        if (!announcement) {
-          // non-announcement lines go to the loading page log (before ready)
-          if (!backendReady) {
-            mainWindow?.webContents.send(IPC_BACKEND_LOG, line + "\n");
-          }
-          continue;
+    const stdoutLines = new LineSplitter((line) => {
+      const announcement = parseAnnouncement(line);
+      if (!announcement) {
+        // non-announcement lines go to the loading page log (before ready).
+        // LineSplitter already stripped the trailing newline; the renderer
+        // displays each message as its own block-level line, so no "\n"
+        // needs to be re-appended.
+        if (!backendReady) {
+          mainWindow?.webContents.send(IPC_BACKEND_LOG, line);
         }
-        const next = acceptAnnouncement(authToken, announcement.old, announcement.next);
-        if (next) {
-          authToken = next;
-          maybeOpenApp();
-        }
+        return;
       }
+      const next = acceptAnnouncement(authToken, announcement.old, announcement.next);
+      if (next) {
+        authToken = next;
+        maybeOpenApp();
+      }
+    });
+    child.stdout?.on("data", (data: Buffer) => {
+      stdoutLines.push(data.toString());
     });
 
     // stderr: hypercorn prints "Running on http://..." here (supervisor
-    // logs also land here before ready). Ready detection is exact enough
-    // for the gate: the message only appears once the backend serves.
-    child.stderr?.on("data", (data: Buffer) => {
-      const text = data.toString();
+    // logs also land here before ready). Line-split like stdout so every
+    // message is forwarded as a whole line; ready detection runs on the
+    // complete line ("Running on http" split across chunks can no longer
+    // be missed or matched on a partial line).
+    const stderrLines = new LineSplitter((line) => {
       if (!backendReady) {
-        mainWindow?.webContents.send(IPC_BACKEND_LOG, text);
-        if (text.includes("Running on http")) {
+        mainWindow?.webContents.send(IPC_BACKEND_LOG, line);
+        if (line.includes("Running on http")) {
           backendReady = true;
           maybeOpenApp();
         }
       }
+    });
+    child.stderr?.on("data", (data: Buffer) => {
+      stderrLines.push(data.toString());
     });
 
     child.on("error", (err) => settle(err));
