@@ -380,22 +380,27 @@ class DeploymentGateMiddleware:
             receive (Receive):
             send (Send):
         """
-        if scope['type'] not in ('http', 'websocket'):
+        scope_type = scope['type']
+        if scope_type not in ('http', 'websocket'):
             await self.app(scope, receive, send)
             return
 
         # Rule C (SSL enforcement): public mode never serves plaintext.
-        # Plaintext connections are upgraded to https/wss, secure
+        # Plaintext connections are upgraded to https/wss, secure http
         # responses get the HSTS header so the browser upgrades http
-        # itself on subsequent visits.
+        # itself on subsequent visits. Only http scopes are wrapped:
+        # HSTS is carried by ordinary http responses, a websocket
+        # handshake (101) has no HSTS semantics, so ws scopes pass
+        # through unwrapped.
         if self._is_public:
             if self._is_plaintext(scope):
                 await self._redirect_plaintext(scope, receive, send)
                 return
-            send = self._with_hsts(send)
+            if scope_type == 'http':
+                send = self._with_hsts(send)
 
         path = scope.get('path', '')
-        if not (path.startswith('/api') or path == '/api'):
+        if not path.startswith('/api'):
             # static resources and the guidance page pass through
             await self.app(scope, receive, send)
             return
@@ -403,7 +408,7 @@ class DeploymentGateMiddleware:
         # Rules A + B (admission) first: 403 / 4001
         err, data = self._check(scope)
         if err:
-            if scope['type'] == 'http':
+            if scope_type == 'http':
                 await self._reject_http(scope, receive, send, err, data)
             else:
                 await self._reject_ws(scope, receive, send, err)
@@ -411,7 +416,7 @@ class DeploymentGateMiddleware:
 
         # Login layer (http only; the ws handshake validates inside
         # serve() so it can close(4001) after accept)
-        if scope['type'] == 'http' and path not in self.EXEMPT:
+        if scope_type == 'http' and path not in self.EXEMPT:
             if not self._check_login(scope):
                 response = Response(
                     error_detail('AUTH_TOKEN_INVALID'),
