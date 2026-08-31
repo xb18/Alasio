@@ -173,12 +173,12 @@ class TestMpipeRecvLoop:
         command:set_lang must be forwarded to the prefs handler and the
         listener must keep running; command:stop afterwards still works
         """
-        from alasio.backend import prefs
+        from alasio.backend import lifespan as lifespan_mod
 
         parent_conn, event, child_conn = self._make(monkeypatch)
 
         received = []
-        monkeypatch.setattr(prefs, 'handle_stdin_set_lang',
+        monkeypatch.setattr(lifespan_mod, 'handle_stdin_set_lang',
                             lambda lang: received.append(lang))
 
         async def main():

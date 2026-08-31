@@ -1,3 +1,17 @@
+# =============================================================================
+# PROCESS BOUNDARY -- ALL alasio imports in this file must stay LOCAL
+# (inside functions).
+#
+# This module is the backend child entry: the spawn target
+# (backend_process_entry) and the entry callable (backend_entry) are
+# pickled into the backend child by module path, and the supervisor process
+# imports this module too (start_backend). The child therefore only imports
+# THIS file plus stdlib. Module-level imports must stay stdlib-only;
+# every alasio import here must be a local import, or it leaks the web
+# stack / backend business modules across the supervisor / backend process
+# boundary.
+# =============================================================================
+
 # Backend process entry point.
 #
 # The spawn target and the backend entry callable live in their own module

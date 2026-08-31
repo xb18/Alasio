@@ -1,3 +1,8 @@
+# This module is imported by the supervisor process only: the backend
+# child deserializes entry.backend_process_entry (alasio.backend.entry),
+# so module-level imports here never leak into the backend process.
+
+import multiprocessing
 import os
 import signal
 import stat
@@ -6,6 +11,7 @@ import threading
 import time
 
 from alasio.backend.entry import backend_process_entry
+from alasio.backend.mpipe.token_supervisor import SupervisorTokenManager
 
 
 def loop_until_timeout(timeout):
@@ -74,7 +80,6 @@ class Supervisor:
         # supervisor owns the pipe). Created in __init__ so start_backend
         # and handle_backend_message work standalone; only active in
         # electron mode (run() calls init_token / start_rotation).
-        from alasio.backend.mpipe.token_supervisor import SupervisorTokenManager
         self.token_manager = SupervisorTokenManager(self)
 
         # Flag to indicate a restart is requested
@@ -145,7 +150,6 @@ class Supervisor:
         For multiprocessing to work correctly on all platforms
         Wrap as method so entry file can be simplified
         """
-        import multiprocessing
         multiprocessing.freeze_support()
         return self
 
@@ -180,7 +184,6 @@ class Supervisor:
             self.parent_conn = None
 
         # Run subprocess in spawn mode
-        import multiprocessing
         ctx = multiprocessing.get_context('spawn')
 
         parent_conn, child_conn = ctx.Pipe()

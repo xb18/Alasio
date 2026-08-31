@@ -8,6 +8,7 @@ from msgspec import DecodeError, EncodeError, ValidationError
 from starlette.websockets import WebSocket, WebSocketDisconnect, WebSocketState
 from trio import Event
 
+from alasio.backend.mpipe.token_backend import read_token_header, token_table
 from alasio.backend.reactive.event import AccessDenied, ElectronOnlyError, RequestEvent, ResponseEvent
 from alasio.backend.reactive.safeid import SafeIDGenerator
 from alasio.backend.ws.ws_topic import BaseTopic
@@ -143,7 +144,6 @@ class WebsocketTopicServer:
 
         # Read the electron token from the handshake headers (ws.headers
         # keeps the handshake headers after accept).
-        from alasio.backend.mpipe.token_backend import read_token_header
         self.auth_token = read_token_header(self.ws)
 
         # register into the active connections registry
@@ -186,7 +186,6 @@ class WebsocketTopicServer:
             bool: True when the connection is logged in
         """
         from alasio.backend.auth.auth import JWT_MANAGER
-        from alasio.backend.mpipe.token_backend import token_table
 
         if token_table.verify_header(self.ws):
             return True
@@ -578,7 +577,6 @@ class WebsocketTopicServer:
             # issued by POST /api/ws/renew and update the connection's
             # auth_token to the latest token in the table. A failed
             # redeem raises AccessDenied: the connection stays alive.
-            from alasio.backend.mpipe.token_backend import token_table
             from alasio.backend.ws.renew import renewal_manager
 
             if renewal_manager.redeem(event.v):
@@ -599,7 +597,6 @@ class WebsocketTopicServer:
             # stays alive (red line: never close on subscribe
             # refusal, the frontend silently drops the error topic)
             if topic_class.REQUIRE_ELECTRON:
-                from alasio.backend.mpipe.token_backend import token_table
                 if not token_table.verify(self.auth_token):
                     raise ElectronOnlyError(f'Topic requires electron: "{t}"')
             # if topic is already subscribed, ignore this event

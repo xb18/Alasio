@@ -1,11 +1,34 @@
+import argparse
 import contextlib
+import functools
 import os
+import platform
+import socket
 
 import trio
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route, WebSocketRoute
 
+from alasio.backend.auth import auth
+from alasio.backend.dev.assets import ImageStaticFiles, SPANoCacheStaticFiles
+from alasio.backend.lifespan import get_shutdown_trigger
+from alasio.backend.middleware.gate import DeploymentGateMiddleware
+from alasio.backend.topic._worker import BACKEND_WORKER_MANAGER
+from alasio.backend.topic.mod import HISTORY_CACHE
+from alasio.backend.topic.scan import ConfigScanSource
+from alasio.backend.ws import renew as ws_renew
+from alasio.backend.ws.context import GLOBAL_CONTEXT, GlobalContext
+from alasio.backend.ws.renew import renewal_manager
+from alasio.backend.ws.topic import PreviewServer, WebsocketServer
 from alasio.backport.patch import patch_mimetype
+from alasio.config.entry.model import MOD_JSON_CACHE
+from alasio.db.conn import SQLITE_POOL
+from alasio.deploy.config.model import DeployConfig
+from alasio.ext import env
+from alasio.ext.path import PathStr
+from alasio.ext.path.calc import joinnormpath
+from alasio.ext.starapi.router import APIRouter, StarAPI
+from alasio.logger import logger
 
 patch_mimetype()
 
@@ -46,7 +69,6 @@ async def on_shutdown():
     """
     Do things if requested a shutdown
     """
-    from alasio.backend.ws.topic import WebsocketServer
     await WebsocketServer.close_all_connections()
 
 
@@ -71,7 +93,6 @@ async def task_listen_shutdown():
     We have a 3s window time to gracefully shutdown before the outer `server_nursery` cancelled
     (which will trigger force shutdown)
     """
-    from alasio.logger import logger
     if WorkerContext_obj is None:
         logger.error(f'Empty WorkerContext_obj, cannot listen to shutdown')
         return
@@ -90,16 +111,11 @@ def sync_task_gc(wait=8):
     """
     Synchronous task that do garbage collect periodically at background
     """
-    from alasio.logger import logger
     logger.check_rotate()
-    from alasio.db.conn import SQLITE_POOL
     SQLITE_POOL.gc(wait)
-    from alasio.config.entry.model import MOD_JSON_CACHE
     MOD_JSON_CACHE.gc(wait)
-    from alasio.backend.topic.mod import HISTORY_CACHE
     HISTORY_CACHE.gc(wait)
     # renewal codes: expiry scan, the main cleanup hook
-    from alasio.backend.ws.renew import renewal_manager
     renewal_manager.gc()
 
 
@@ -110,7 +126,6 @@ async def task_gc(wait=8):
     wait=8 is a magic number. Trio working thread exits after 10s of idle,
     so wait=8 would ensure gc thread won't start/stop everytime, and we have a free thread when gc is not running
     """
-    from alasio.logger import logger
     while 1:
         # sleep first, no need to do gc at startup
         await trio.sleep(wait)
@@ -131,11 +146,9 @@ async def lifespan(app):
     A global starlette lifespan
     """
     restore_context_cls()
-    from alasio.logger import logger
     logger.info('Lifespan start')
     async with trio.open_nursery() as nursery:
         # inject global context
-        from alasio.backend.ws.context import GLOBAL_CONTEXT, GlobalContext
         GLOBAL_CONTEXT.global_nursery = nursery
         GLOBAL_CONTEXT.trio_token = trio.lowlevel.current_trio_token()
         # start listening shutdown
@@ -143,11 +156,9 @@ async def lifespan(app):
         # start gc task
         nursery.start_soon(task_gc)
         # start message bus task
-        from alasio.backend.ws.topic import WebsocketServer
         nursery.start_soon(WebsocketServer.task_msgbus_global)
         nursery.start_soon(WebsocketServer.task_msgbus_config)
         # warmups
-        from alasio.backend.topic.scan import ConfigScanSource
         nursery.start_soon(ConfigScanSource.create_default_config)
 
         # actual backend runs here
@@ -157,10 +168,8 @@ async def lifespan(app):
 
     # cleanup before exit
     # Terminate all workers
-    from alasio.backend.topic._worker import BACKEND_WORKER_MANAGER
     BACKEND_WORKER_MANAGER.close()
     # release db connections
-    from alasio.db.conn import SQLITE_POOL
     SQLITE_POOL.release_all()
     # clear global context
     GlobalContext.singleton_clear()
@@ -169,7 +178,6 @@ async def lifespan(app):
 
 
 def create_app():
-    from alasio.ext.starapi.router import StarAPI
     app = StarAPI(lifespan=lifespan)
 
     # Global admission + login middleware: DeploymentGateMiddleware
@@ -179,21 +187,17 @@ def create_app():
     # rule A having run first). starlette wraps the app with
     # middlewares in reverse order of add_middleware, so the gate is
     # the outermost layer.
-    from alasio.backend.middleware.gate import DeploymentGateMiddleware
     app.add_middleware(DeploymentGateMiddleware)
 
     # All APIs should under /api
     # Builtin APIs
-    from alasio.backend.auth import auth
     app.add_router('/api', auth.router)
 
     # Renewal code endpoint: POST /api/ws/renew (require_login +
     # require_electron), mounted after the auth router
-    from alasio.backend.ws import renew as ws_renew
     app.add_router('/api', ws_renew.router)
 
     # Global websocket
-    from alasio.backend.ws.topic import PreviewServer, WebsocketServer
     app.routes.append(WebSocketRoute('/api/ws', WebsocketServer.endpoint))
     app.routes.append(WebSocketRoute('/api/preview', PreviewServer.endpoint))
 
@@ -206,10 +210,10 @@ def create_app():
     app.routes.append(Route('/robots.txt', robots_txt))
 
     # Mound dev files
-    from alasio.backend.dev.assets import ImageStaticFiles, SPANoCacheStaticFiles
+    # MOD_LOADER is instantiated at loader.py module level and bound to
+    # env.PROJECT_ROOT at that moment: it must be imported after
+    # set_project_root() ran (create_config), so this import stays local.
     from alasio.config.entry.loader import MOD_LOADER
-    from alasio.ext.path.calc import joinnormpath
-    from alasio.ext.starapi.router import APIRouter
 
     # Mount all mod assets
     assets_router = APIRouter('/dev_assets')
@@ -226,7 +230,6 @@ def create_app():
     pass
 
     # Mount static files
-    from alasio.ext.path import PathStr
 
     # for frontend local builds
     root = PathStr(__file__).uppath(3).joinpath('frontend/build')
@@ -240,12 +243,8 @@ def apply_hypercorn_exclusivity_patch():
     """
     Apply cross-platform port exclusivity patch to Hypercorn Config class
     """
-    import platform
-    import socket
-
     from hypercorn import Config
 
-    from alasio.logger import logger
     original_create_sockets = Config._create_sockets
     system_platform = platform.system()
 
@@ -290,7 +289,6 @@ def create_config(args=None):
         args (list[str] | None): Commandline args from supervisor level
             Use this `args` input instead of `sys.args`, as backend is a sub-process
     """
-    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--root', type=str, default='')
     parser.add_argument('--host', type=str, default='')
@@ -298,16 +296,12 @@ def create_config(args=None):
     parsed_args, _ = parser.parse_known_args(args)
 
     # set project root, so we have the right path to save ./config
-    from alasio.ext import env
     if parsed_args.root:
         env.set_project_root(parsed_args.root)
     else:
         env.set_project_root(os.getcwd())
-    from alasio.logger import logger
     logger.info(f'[PROJECT_ROOT] {env.PROJECT_ROOT}')
-
     apply_hypercorn_exclusivity_patch()
-    from alasio.deploy.config.model import DeployConfig
     deploy = DeployConfig().config.data
 
     # build host port
@@ -351,7 +345,6 @@ async def serve_app(args=None):
     config = create_config(args)
     app = create_app()
 
-    from alasio.backend.lifespan import get_shutdown_trigger
     shutdown_trigger = get_shutdown_trigger()
 
     patch_context_cls()
@@ -362,5 +355,4 @@ def run(args=None):
     """
     Backend entry point
     """
-    import functools
     trio.run(functools.partial(serve_app, args=args))

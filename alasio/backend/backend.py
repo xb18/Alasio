@@ -1,11 +1,25 @@
+# =============================================================================
+# PROCESS BOUNDARY
+#
+# This module is imported by the SUPERVISOR process only (gui.py __main__
+# block). The backend child reaches the web stack through
+# entry.backend_entry (alasio.backend.entry), never through this file.
+# Keep heavy backend imports (app.py / starlette / trio / hypercorn) OUT of
+# this module: a module-level import here would pull the whole web stack
+# into the supervisor process.
+# =============================================================================
+
 # Backend entry file should not have any heavy global import
 # otherwise every child process will import them in spawn mode.
 # The two module-level imports below are light: entry.py is stdlib-only,
 # supervisor.py is stdlib-only. The actual backend entry (app.py, starlette,
 # trio, hypercorn) is imported lazily in alasio.backend.entry.backend_entry.
 
+import sys
+
 from alasio.backend.entry import backend_entry
 from alasio.backend.supervisor import Supervisor
+from alasio.ext.path import PathStr
 
 
 class BackendSupervisor(Supervisor):
@@ -25,10 +39,6 @@ class BackendSupervisor(Supervisor):
             root (str): input __file__ of gui.py
             up (int): Uppath from gui.py to project root
         """
-        import sys
-
-        from alasio.ext.path import PathStr
-
         gui_args = sys.argv[1:]
         if args:
             gui_args += args

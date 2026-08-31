@@ -1,12 +1,28 @@
+# =============================================================================
+# PROCESS BOUNDARY -- module-level imports must stay LIGHT.
+#
+# This module is imported by BOTH the backend process (worker.manager holds
+# the spawn target here) and the worker process (pickle target
+# deserialization). Module-level imports must stay light: no web framework
+# (starlette / trio / hypercorn) and no backend business modules. Test-only
+# imports (tests.backend.worker.worker_mods) must stay local.
+# =============================================================================
+
+import importlib
 import os
 import sys
 from threading import Event, Lock, Thread, get_ident
 from typing import Literal
 
+from msgspec.msgpack import Decoder, Encoder
+
 from alasio.backend.worker.event import CommandEvent, ConfigEvent
 from alasio.backport.threading_ext import PreemptiveEvent
+from alasio.ext import env
 from alasio.ext.cache import cached_property
+from alasio.ext.path.calc import to_python_import
 from alasio.ext.singleton import Singleton
+from alasio.logger import logger
 
 
 def mod_entry(mod_name, config_name, child_conn, project_root='', mod_root='', path_main=''):
@@ -42,13 +58,9 @@ def mod_entry(mod_name, config_name, child_conn, project_root='', mod_root='', p
             sys.path[0] = mod_root
 
             # set project root path
-            from alasio.ext import env
             env.set_project_root(project_root)
 
             # import Scheduler
-            import importlib
-
-            from alasio.ext.path.calc import to_python_import
             entry = to_python_import(path_main)
             module = importlib.import_module(entry)
             try:
@@ -69,7 +81,6 @@ def mod_entry(mod_name, config_name, child_conn, project_root='', mod_root='', p
 
 def _async_raise(tid):
     if tid <= 0:
-        from alasio.logger import logger
         logger.error(f'[BackendBridge] Failed to send KeyboardInterrupt, tid invalid: {tid}')
         return False
 
@@ -79,13 +90,11 @@ def _async_raise(tid):
     res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, err)
 
     if res < 1:
-        from alasio.logger import logger
         logger.error(f'[BackendBridge] Failed to send KeyboardInterrupt, tid invalid: {tid}')
         return True
     elif res == 1:
         return True
     else:
-        from alasio.logger import logger
         logger.error(f'[BackendBridge] Failed to send KeyboardInterrupt to thread {tid}')
         # Failed to send KeyboardInterrupt, reset it
         ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
@@ -140,12 +149,10 @@ class BackendBridge(metaclass=Singleton):
 
     @cached_property
     def _encoder(self):
-        from msgspec.msgpack import Encoder
         return Encoder()
 
     @cached_property
     def _decoder(self):
-        from msgspec.msgpack import Decoder
         return Decoder(CommandEvent)
 
     def send(self, event: ConfigEvent) -> Lock:
@@ -244,7 +251,6 @@ class BackendBridge(metaclass=Singleton):
                 conn._send_bytes(data)
             except AttributeError:
                 # this shouldn't happen
-                from alasio.logger import logger
                 logger.error(f'[BackendBridge] Failed to send command: pipe connection not initialized')
                 return False
             except (EOFError, OSError):
@@ -255,7 +261,6 @@ class BackendBridge(metaclass=Singleton):
                 # logger.error(f'[BackendBridge] Failed to send command: pipe broken')
                 return False
             except Exception as e:
-                from alasio.logger import logger
                 logger.error(f'[BackendBridge] Failed to send command: {e}')
             finally:
                 # 3. 通知用户（如果用户在关心结果）
@@ -278,17 +283,14 @@ class BackendBridge(metaclass=Singleton):
             self.preview_requested.set()
             return
         if command == 'scheduler-stopping':
-            from alasio.logger import logger
             logger.info(f'[BackendBridge] received command {command}')
             self.scheduler_stopping.set()
             return
         if command == 'scheduler-continue':
-            from alasio.logger import logger
             logger.info(f'[BackendBridge] received command {command}')
             self.scheduler_stopping.clear()
             return
         if command in ['killing', 'force-killing']:
-            from alasio.logger import logger
             logger.info(f'[BackendBridge] received command {command}')
             _async_raise(self.main_tid)
             return
@@ -304,7 +306,6 @@ class BackendBridge(metaclass=Singleton):
         conn = self.conn
         if not conn:
             # this shouldn't happen
-            from alasio.logger import logger
             logger.error(f'[BackendBridge] Failed to recv command: pipe connection not initialized')
             return False
 
@@ -319,13 +320,11 @@ class BackendBridge(metaclass=Singleton):
                 # logger.error(f'[BackendBridge] Failed to recv command: pipe broken')
                 return False
             except Exception as e:
-                from alasio.logger import logger
                 logger.error(f'[BackendBridge] Failed to recv command: {e}')
                 return False
             try:
                 self._handle_backend_command(data)
             except Exception as e:
-                from alasio.logger import logger
                 logger.warning(f'[BackendBridge] Failed to handle command: {e}')
                 continue
 
@@ -373,7 +372,6 @@ class BackendBridge(metaclass=Singleton):
 
     def send_worker_state(self, value: Literal['running', 'scheduler-waiting', 'error']):
         if value not in ['running', 'scheduler-waiting', 'error']:
-            from alasio.logger import logger
             logger.error(f'[BackendBridge] Invalid worker state "{value}", ignored')
             return
         return self.send(ConfigEvent(t='WorkerState', v=value))

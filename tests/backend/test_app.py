@@ -37,7 +37,7 @@ class TestCreateConfig:
             'alasio.backend.app.apply_hypercorn_exclusivity_patch', lambda: None)
         monkeypatch.setattr('alasio.ext.env.set_project_root', lambda root: None)
         monkeypatch.setattr(
-            'alasio.deploy.config.model.DeployConfig',
+            'alasio.backend.app.DeployConfig',
             lambda: FakeDeployConfig(ssl=True),
         )
 
@@ -54,7 +54,7 @@ class TestCreateConfig:
             'alasio.backend.app.apply_hypercorn_exclusivity_patch', lambda: None)
         monkeypatch.setattr('alasio.ext.env.set_project_root', lambda root: None)
         monkeypatch.setattr(
-            'alasio.deploy.config.model.DeployConfig',
+            'alasio.backend.app.DeployConfig',
             lambda: FakeDeployConfig(ssl=False),
         )
 

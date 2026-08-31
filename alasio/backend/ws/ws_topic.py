@@ -2,8 +2,9 @@ from typing import TYPE_CHECKING
 
 from msgspec import DecodeError, ValidationError
 
+from alasio.backend.mpipe.token_backend import token_table
 from alasio.backend.reactive.base_topic import BaseTopic as BaseMixin
-from alasio.backend.reactive.event import AccessDenied, ResponseEvent, RpcValueError
+from alasio.backend.reactive.event import AccessDenied, ElectronOnlyError, ResponseEvent, RpcValueError
 from alasio.backend.reactive.rx_trio import AsyncReactiveCallback, async_reactive
 from alasio.ext.deep import deep_iter_patch
 from alasio.ext.singleton import SingletonNamed
@@ -42,9 +43,6 @@ class BaseTopic(AsyncReactiveCallback, BaseMixin, metaclass=SingletonNamed):
         Raises:
             ElectronOnlyError: When the connection has no valid token
         """
-        from alasio.backend.mpipe.token_backend import token_table
-        from alasio.backend.reactive.event import ElectronOnlyError
-
         if not token_table.verify(self.server.auth_token):
             raise ElectronOnlyError('Electron token required')
 

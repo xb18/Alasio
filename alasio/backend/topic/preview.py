@@ -74,7 +74,8 @@ class PreviewTask(BackgroundTask, metaclass=SingletonNamed):
     def __init__(self, config_name):
         super().__init__()
         self.config_name = config_name
-        # Avoid circular import
+        # Local import to break the circular dependency: topic._worker
+        # imports topic.preview at module level (BACKEND_WORKER_MANAGER).
         from alasio.backend.topic._worker import BACKEND_WORKER_MANAGER
         self._manager = BACKEND_WORKER_MANAGER
         self._nursery = GLOBAL_CONTEXT.global_nursery
@@ -224,11 +225,6 @@ class PreviewTask(BackgroundTask, metaclass=SingletonNamed):
 
 
 class Preview(BaseTopic):
-    # Game screen preview: electron-only (remote users must
-    # not spy on the local game screen). Subscribing to the topic and its
-    # rpcs (preview_start / preview_stop) require a valid electron token.
-    REQUIRE_ELECTRON = True
-
     cache: "PreviewTask | None" = None
 
     async def getdata(self):

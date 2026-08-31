@@ -1,3 +1,4 @@
+import http.cookies
 import ipaddress
 
 import jwt
@@ -5,6 +6,7 @@ from starlette import status
 from starlette.datastructures import URL
 from starlette.responses import RedirectResponse, Response
 
+from alasio.backend.mpipe.token_backend import token_table
 from alasio.ext.cache import cached_property
 from alasio.ext.starapi.param import error_detail
 
@@ -176,7 +178,6 @@ class DeploymentGateMiddleware:
         Returns:
             bool: True when the request carries a valid electron token
         """
-        from alasio.backend.mpipe.token_backend import token_table
 
         return token_table.verify_header(scope)
 
@@ -306,8 +307,6 @@ class DeploymentGateMiddleware:
         Returns:
             str: The cookie value, or '' when absent / unparsable
         """
-        import http.cookies
-
         for name, value in scope.get('headers', []):
             if name != b'cookie':
                 continue

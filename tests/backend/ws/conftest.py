@@ -22,6 +22,23 @@ def reset_server_terminated():
 
 
 @pytest.fixture(autouse=True)
+def isolate_jwt_manager(monkeypatch):
+    """
+    Tests must not depend on the user's real deploy.yaml / gui.db.
+
+    JWT_MANAGER.pwd and .secret are cached_property descriptors backed by
+    DeployConfig (config/deploy.yaml, a user-managed file) and
+    AlasioKeyTable (config/gui.db). Shadow them with fixed test values so
+    _check_login always passes without reading user configuration.
+    """
+    from alasio.backend.auth.auth import JWT_MANAGER
+
+    # instance attributes shadow the cached_property descriptors
+    monkeypatch.setattr(JWT_MANAGER, 'pwd', '')
+    monkeypatch.setattr(JWT_MANAGER, 'secret', b'unit-test-secret')
+
+
+@pytest.fixture(autouse=True)
 def cleanup_topic_singletons():
     """
     Clear all test topic singletons after each test, so named singletons

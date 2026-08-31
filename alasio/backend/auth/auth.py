@@ -10,7 +10,9 @@ from starlette.requests import Request
 from typing_extensions import Annotated
 
 from alasio.backend.auth.fail2ban import Fail2Ban
+from alasio.backend.mpipe.token_backend import token_table
 from alasio.config.table.key import AlasioKeyTable
+from alasio.deploy.config.model import DeployConfig
 from alasio.ext.cache import cached_property
 from alasio.ext.starapi.param import Cookie, Depends, HTTPExceptionJson, SetCookie
 from alasio.ext.starapi.router import APIRouter
@@ -34,7 +36,6 @@ class JwtManager:
         DeploymentGateMiddleware then refuses every web access except
         requests carrying a valid electron token.
         """
-        from alasio.deploy.config.model import DeployConfig
         return DeployConfig().config.data.Backend.Password or ''
 
     @cached_property
@@ -204,7 +205,6 @@ async def auth_renew(
     # password check is skipped entirely (login exists to defend remote
     # access, not to gate the local client). A stale/damaged JWT cookie
     # is simply overwritten by the freshly issued one.
-    from alasio.backend.mpipe.token_backend import token_table
     if token_table.verify_header(request):
         new = JWT_MANAGER.create()
     else:
