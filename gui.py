@@ -14,8 +14,12 @@ from alasio.backport.patch import patch_startup
 patch_startup()
 
 if __name__ == '__main__':
+    import os
+
     # run
     from alasio.backend.backend import BackendSupervisor
 
     supervisor = BackendSupervisor().multiprocessing_freeze_support()
-    supervisor.run_gui()
+    # --root is passed down to the backend (and then the worker) so the
+    # process chain works even when gui.py is started from another cwd
+    supervisor.run_gui(root=os.path.dirname(os.path.abspath(__file__)))

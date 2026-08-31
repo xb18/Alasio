@@ -19,7 +19,6 @@ import sys
 
 from alasio.backend.entry import backend_entry
 from alasio.backend.supervisor import Supervisor
-from alasio.ext.path import PathStr
 
 
 class BackendSupervisor(Supervisor):
@@ -32,15 +31,19 @@ class BackendSupervisor(Supervisor):
     # imports this file nor supervisor.py.
     backend_entry = staticmethod(backend_entry)
 
-    def run_gui(self, args=None, root='', up=1):
+    def run_gui(self, root, args=None):
         """
+        Collect sys.argv and run the supervisor loop, passing the project
+        root down to the backend through --root.
+
         Args:
-            args (list[str] | None):
-            root (str): input __file__ of gui.py
-            up (int): Uppath from gui.py to project root
+            root (str): Absolute project root, e.g.
+                os.path.dirname(os.path.abspath(__file__)) in the entry file
+            args (list[str] | None): Extra command line args, appended after
+                sys.argv[1:]
         """
         gui_args = sys.argv[1:]
         if args:
             gui_args += args
-        gui_args += ['--root', PathStr.new(root).uppath(up)]
+        gui_args += ['--root', root]
         self.run(gui_args)

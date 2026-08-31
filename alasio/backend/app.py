@@ -298,6 +298,7 @@ def create_config(args=None):
     # set project root, so we have the right path to save ./config
     if parsed_args.root:
         env.set_project_root(parsed_args.root)
+        os.chdir(parsed_args.root)
     else:
         env.set_project_root(os.getcwd())
     logger.info(f'[PROJECT_ROOT] {env.PROJECT_ROOT}')
