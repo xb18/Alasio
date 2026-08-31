@@ -115,6 +115,6 @@ class TestWorkerIPC:
 
     def test_standalone_worker(self):
         """测试 worker 在没有后端连接的情况下运行"""
-        from alasio.backend.worker.bridge import worker_test_run3
+        from tests.backend.worker.worker_mods import worker_test_run3
 
         worker_test_run3()

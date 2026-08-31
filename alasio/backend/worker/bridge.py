@@ -9,84 +9,6 @@ from alasio.ext.cache import cached_property
 from alasio.ext.singleton import Singleton
 
 
-def worker_test_infinite():
-    # A worker that runs infinitely
-    backend = BackendBridge()
-    n = 0
-    while 1:
-        backend.send_log(str(n))
-        n += 1
-        backend.test_wait.wait(timeout=0.05)
-
-
-def worker_test_run3():
-    # A worker that runs only 3 times
-    backend = BackendBridge()
-    for n in range(3):
-        backend.send_log(str(n))
-        backend.test_wait.wait(timeout=0.05)
-
-
-def worker_test_error():
-    # A worker that will raise error
-    backend = BackendBridge()
-    backend.send_log('1')
-    backend.test_wait.wait(timeout=0.05)
-    raise Exception
-
-
-def worker_test_scheduler():
-    # A worker that simulates scheduler
-    # - emits scheduler-waiting
-    # - exits on scheduler_stopping after 0.5s
-    backend = BackendBridge()
-    backend.send_log('1')
-    n = 0
-    while 1:
-        if n % 3 == 2:
-            backend.send_worker_state('scheduler-waiting')
-        else:
-            backend.send_worker_state('running')
-        n += 1
-        if backend.scheduler_stopping.wait(0.05):
-            backend.test_wait.wait(timeout=0.05)
-            break
-        else:
-            backend.test_wait.wait(timeout=0.05)
-            continue
-
-
-def worker_test_send_events():
-    # A worker that sends various config events for testing
-    backend = BackendBridge()
-
-    # Send log event
-    backend.send_log('worker started')
-    backend.test_wait.wait(timeout=0.05)
-
-    # Send custom config events
-    backend.send(ConfigEvent(t='CustomEvent', v='test_value_1'))
-    backend.test_wait.wait(timeout=0.05)
-
-    backend.send(ConfigEvent(t='CustomEvent', v='test_value_2'))
-    backend.test_wait.wait(timeout=0.05)
-
-    backend.send(ConfigEvent(t='DataUpdate', k=('task', 'group', 'arg'), v={'data': 123}))
-    backend.test_wait.wait(timeout=0.05)
-
-    # Send worker state
-    backend.send_worker_state('scheduler-waiting')
-    backend.test_wait.wait(timeout=0.05)
-
-    backend.send_worker_state('running')
-    backend.test_wait.wait(timeout=0.05)
-
-    # Wait for stop signal
-    while not backend.scheduler_stopping.wait(0.05):
-        backend.send_log('still running')
-        backend.test_wait.wait(timeout=0.05)
-
-
 def mod_entry(mod_name, config_name, child_conn, project_root='', mod_root='', path_main=''):
     """
     Run mod scheduler infinitely
@@ -101,20 +23,15 @@ def mod_entry(mod_name, config_name, child_conn, project_root='', mod_root='', p
     """
     BackendBridge().init(mod_name, config_name, child_conn)
 
-    if mod_name == 'WorkerTestInfinite':
-        worker_test_infinite()
-        return
-    if mod_name == 'WorkerTestRun3':
-        worker_test_run3()
-        return
-    if mod_name == 'WorkerTestError':
-        worker_test_error()
-        return
-    if mod_name == 'WorkerTestScheduler':
-        worker_test_scheduler()
-        return
-    if mod_name == 'WorkerTestSendEvents':
-        worker_test_send_events()
+    # Test mods are defined in tests/backend/worker/worker_mods.py to keep
+    # test code out of runtime, import lazily on demand
+    if mod_name.startswith('WorkerTest'):
+        from tests.backend.worker.worker_mods import WORKER_TEST_MODS
+        try:
+            worker = WORKER_TEST_MODS[mod_name]
+        except KeyError:
+            raise KeyError(f'No such mod to run {mod_name}') from None
+        worker()
         return
 
     # if project_root, mod_root, path_main all provided, consider as real mod
