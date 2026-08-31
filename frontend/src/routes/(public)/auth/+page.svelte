@@ -11,6 +11,8 @@
   let showTip = $state(false);
   let error = $state<jwtError | null>(null);
   let password = $state("");
+  // Disable the login button until a password is entered
+  let canLogin = $derived(password.length > 0);
   // Plaintext warning for remote http sessions (lan mode): the password
   // and the JWT cookie travel in clear text on the network. Loopback is
   // trustworthy, remote http is only suggested on trusted networks.
@@ -107,6 +109,6 @@
     </form>
   </CardContent>
   <CardFooter class="flex-col gap-2">
-    <Button type="submit" class="w-full" onclick={login}>{t.Auth.Login()}</Button>
+    <Button type="submit" class="w-full" disabled={!canLogin} onclick={login}>{t.Auth.Login()}</Button>
   </CardFooter>
 </Card>
