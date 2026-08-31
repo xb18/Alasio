@@ -11,14 +11,16 @@ class TestMockCaptureWriter:
             # 1. Test basic logging
             logger.info("Hello Info")
             assert capture.fd.any_contains("Hello Info")
-            assert capture.stdout.any_contains("Hello Info")
+            # backend is inited, logs are sent to backend + file only, not stdout
+            assert not capture.stdout.any_contains("Hello Info")
             assert any(log['l'] == 'INFO' and log['m'] == 'Hello Info' for log in capture.backend.logs)
             capture.clear()
 
             # 2. Test raw logging
             logger.raw("Hello Raw")
             assert capture.fd.any_contains("Hello Raw\n")
-            assert capture.stdout.any_contains("Hello Raw\n")
+            # backend is inited, logs are sent to backend + file only, not stdout
+            assert not capture.stdout.any_contains("Hello Raw\n")
             assert any(log['r'] == 1 and log['m'] == 'Hello Raw' for log in capture.backend.logs)
             capture.clear()
 

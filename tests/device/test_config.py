@@ -152,7 +152,7 @@ class TestDeviceConfig:
             # Value in mock_config should remain unchanged
             assert mock_config.Emulator.Serial == '127.0.0.1:5555'
             # Should log a warning
-            assert capture.stdout.any_contains("DeviceConfig: Failed to proxy setattr, config is None")
+            assert capture.fd.any_contains("DeviceConfig: Failed to proxy setattr, config is None")
 
     def test_internal_attribute_no_broadcast(self):
         """
@@ -188,12 +188,12 @@ class TestDeviceConfig:
             device_config = DeviceConfig.from_config(incomplete_config)
 
             # Should log warnings during from_config
-            assert capture.stdout.any_contains('DeviceConfig.from_config: Missing key in config "Emulator.Serial"')
+            assert capture.fd.any_contains('DeviceConfig.from_config: Missing key in config "Emulator.Serial"')
 
             # Now test broadcast to missing group
             capture.clear()
             device_config.Emulator_Serial = '127.0.0.1:5555'
-            assert capture.stdout.any_contains('DeviceConfig: Failed to proxy setattr, missing key in config "Emulator.Serial"')
+            assert capture.fd.any_contains('DeviceConfig: Failed to proxy setattr, missing key in config "Emulator.Serial"')
 
     def test_batch_set(self):
         """
@@ -229,7 +229,7 @@ class TestDeviceConfig:
             with device_config.batch_set():
                 device_config.Emulator_Serial = '127.0.0.1:62001'
 
-            assert capture.stdout.any_contains('DeviceConfig: Failed to proxy')
+            assert capture.fd.any_contains('DeviceConfig: Failed to proxy')
 
     def test_override(self):
         """
@@ -284,4 +284,4 @@ class TestDeviceConfig:
         # Should log a warning but not crash
         with logger.mock_capture_writer() as capture:
             device_config.override_clear()
-            assert capture.stdout.any_contains('DeviceConfig: Failed to proxy override_clear')
+            assert capture.fd.any_contains('DeviceConfig: Failed to proxy override_clear')

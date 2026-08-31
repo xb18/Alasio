@@ -344,7 +344,6 @@ Some footer text
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 # Header
@@ -373,7 +372,6 @@ Some footer text
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name  | age |
@@ -402,7 +400,6 @@ After
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 Before
@@ -431,7 +428,6 @@ After
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name    | age |
@@ -460,7 +456,6 @@ After
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name  | age |
@@ -484,7 +479,6 @@ After
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name | age |
@@ -513,7 +507,6 @@ Some text
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 # Config
@@ -556,7 +549,6 @@ Some text
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         f.seek(0)
         table2 = MarkdownTable(f, "", Person)
@@ -586,7 +578,6 @@ After
         with logger.mock_capture_writer() as capture1:
             table.write()
             assert capture1.fd.any_contains("Write file")
-            assert capture1.stdout.any_contains("Write file")
         f.seek(0)
         snapshot = f.getvalue()
 
@@ -612,7 +603,6 @@ After
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name | age |
@@ -638,7 +628,6 @@ class TestMarkdownTableWriteBehavior:
         with logger.mock_capture_writer() as capture:
             result = table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
         assert result is table
 
     def test_write_unchanged_skips_write_and_log(self):
@@ -655,7 +644,6 @@ class TestMarkdownTableWriteBehavior:
         with logger.mock_capture_writer() as capture_first:
             table.write()
             assert capture_first.fd.any_contains("Write file")
-            assert capture_first.stdout.any_contains("Write file")
 
         with logger.mock_capture_writer() as capture:
             table.write()
@@ -678,4 +666,3 @@ class TestMarkdownTableWriteBehavior:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")

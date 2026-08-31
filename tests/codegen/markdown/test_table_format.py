@@ -28,7 +28,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name  | age |
@@ -54,7 +53,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name                 | age |
@@ -81,7 +79,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name | age |
@@ -108,7 +105,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | name  | age |
@@ -134,7 +130,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 |  name | age |
@@ -162,7 +157,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 | unset | left | center | right |
@@ -188,7 +182,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = """\
 |       name       | age |
@@ -215,7 +208,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
         # Column width = max(4, 8, 1) = 8 -> ljust pads CJK (len=4) to 8
         expected = """\
 | name     | age |
@@ -242,7 +234,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
         # "你好" display width = 4, fixed width = 10 -> padding = 6
         expected = """\
 | name       | age |
@@ -269,7 +260,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
         # "你好世界" display width = 8 > 4 -> overflow
         # "a" display width = 1 < 4 -> padded to 4
         # "name" display width = 4 = width -> exact fit
@@ -298,7 +288,6 @@ class TestMarkdownTableFormat:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
         # "hello你好" = 5 + 4 = 9 display width, padding = 3
         # "abc" = 3 display width, padding = 9
         expected = """\
@@ -328,7 +317,6 @@ class TestMarkdownTableMinWidth:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
         # width=1 -> clamped to 3; separator = ' --- '
         expected = """\
 | x   |
@@ -353,7 +341,6 @@ class TestMarkdownTableMinWidth:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
         # auto max=1 -> clamped to 3; separator = ' --- '
         expected = """\
 | x   |
@@ -385,7 +372,6 @@ class TestMarkdownTableMinWidth:
         with logger.mock_capture_writer() as capture:
             table.write()
             assert capture.fd.any_contains("Write file")
-            assert capture.stdout.any_contains("Write file")
 
         expected = f"{header}\n{sep}\n{body}\n"
         assert f.getvalue() == expected

@@ -352,32 +352,12 @@ class AlasioLogger(LoggingLevel):
         backend_inited = writer.backend.inited
         is_electron = writer.is_electron
         with self._lock:
-            # do 3 things parallely, print to stdout, write into file, send to backend
             if backend_inited:
-                if is_electron:
-                    # backend + file
-                    job = writer.backend.send_log(backend_event)
-                    writer.fd.write(text_plain)
-                    writer.fd.flush()
-                    job.acquire()
-                else:
-                    # backend + stdout + file
-                    job = writer.backend.send_log(backend_event)
-                    writer.fd.write(text_plain)
-                    try:
-                        writer.stdout.write(text_rich)
-                    except (OSError, ValueError):
-                        # stdout pipe may be broken while the host process is
-                        # shutting down; logging must never raise into the caller
-                        pass
-                    writer.fd.flush()
-                    try:
-                        writer.stdout.flush()
-                    except (OSError, ValueError):
-                        # stdout pipe may be broken while the host process is
-                        # shutting down; logging must never raise into the caller
-                        pass
-                    job.acquire()
+                # backend + file
+                job = writer.backend.send_log(backend_event)
+                writer.fd.write(text_plain)
+                writer.fd.flush()
+                job.acquire()
             else:
                 if is_electron:
                     # file
