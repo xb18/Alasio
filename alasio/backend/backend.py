@@ -21,7 +21,7 @@ from alasio.backend.entry import backend_entry
 from alasio.backend.supervisor import Supervisor
 
 
-class BackendSupervisor(Supervisor):
+class BackendWithSupervisor(Supervisor):
     # staticmethod wrapper is required: a plain function assigned as a class
     # attribute becomes a bound method on instance access, and pickling the
     # bound method would carry the Supervisor instance (with its

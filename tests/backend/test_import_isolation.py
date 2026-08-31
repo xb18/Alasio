@@ -82,11 +82,11 @@ def _load_gui_module_level():
 def import_supervisor_startup():
     """
     Simulate supervisor process startup imports: gui.py module level plus
-    the __main__ block (BackendSupervisor instantiation).
+    the __main__ block (BackendWithSupervisor instantiation).
     """
     _load_gui_module_level()
-    from alasio.backend.backend import BackendSupervisor
-    BackendSupervisor().multiprocessing_freeze_support()
+    from alasio.backend.backend import BackendWithSupervisor
+    BackendWithSupervisor().multiprocessing_freeze_support()
 
 
 def import_backend_startup():

@@ -157,7 +157,7 @@ class Supervisor:
     def backend_entry(args):
         """
         Subclasses must override this attribute with a module-level function,
-        e.g. `backend_entry = entry.backend_entry` in BackendSupervisor. The
+        e.g. `backend_entry = entry.backend_entry` in BackendWithSupervisor. The
         function is pickled into the backend child through the spawn args,
         so it must live in a stdlib-only module (alasio.backend.entry).
 

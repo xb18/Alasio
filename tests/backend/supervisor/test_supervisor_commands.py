@@ -490,7 +490,7 @@ class TestBackendProcessPickle:
 
     def test_backend_supervisor_entry_is_plain_function(self):
         """
-        BackendSupervisor.backend_entry must stay a plain function when
+        BackendWithSupervisor.backend_entry must stay a plain function when
         accessed through an instance: a plain function assigned as a class
         attribute is looked up as a bound method, and pickling the bound
         method would carry the Supervisor instance (with its _thread.lock
@@ -498,9 +498,9 @@ class TestBackendProcessPickle:
         """
         import pickle
 
-        from alasio.backend.backend import BackendSupervisor
+        from alasio.backend.backend import BackendWithSupervisor
 
-        entry = BackendSupervisor().backend_entry
+        entry = BackendWithSupervisor().backend_entry
         assert callable(entry)
         assert getattr(entry, '__self__', None) is None
         assert entry.__module__ == 'alasio.backend.entry'
