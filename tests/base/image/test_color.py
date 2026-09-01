@@ -67,6 +67,23 @@ def rgb888_image():
     return create_rgb888()
 
 
+def color_blocks(image, size=125):
+    """
+    Yield non-overlapping size x size blocks covering the whole image.
+    125x125 = 15625 pixels, which is below the 30000-pixel branch threshold.
+
+    Args:
+        image (np.ndarray): Input image
+        size (int): Block size in pixels
+
+    Yields:
+        np.ndarray: Image block
+    """
+    for y in range(0, image.shape[0], size):
+        for x in range(0, image.shape[1], size):
+            yield image[y:y + size, x:x + size]
+
+
 class TestRgb2Luma:
     """Tests for rgb2luma"""
 
@@ -198,9 +215,17 @@ class TestColorSimilarity2d:
         (10, 245, 3),
     ])
     def test_matches_reference(self, rgb888_image, color):
+        # Large image path (per-channel, >= 30000 pixels)
         result = color_similarity_2d(rgb888_image, color)
         reference = self.reference(rgb888_image, color)
         assert np.array_equal(result, reference), f"color={color}"
+        # Small image path (< 30000 pixels): every 125x125 block together
+        # covers the full color space
+        for index, block in enumerate(color_blocks(rgb888_image)):
+            result = color_similarity_2d(block, color)
+            reference = self.reference(block, color)
+            assert np.array_equal(result, reference), \
+                f"color={color} block {index}"
 
 
 class TestExtractLetters:
@@ -233,10 +258,18 @@ class TestExtractLetters:
     ])
     @pytest.mark.parametrize("threshold", [64, 128, 255])
     def test_matches_reference(self, rgb888_image, letter, threshold):
+        # Large image path (per-channel, >= 30000 pixels)
         result = extract_letters(rgb888_image, letter=letter, threshold=threshold)
         reference = self.reference(rgb888_image, tuple(letter), threshold)
         assert np.array_equal(result, reference), \
             f"letter={letter} threshold={threshold}"
+        # Small image path (< 30000 pixels): every 125x125 block together
+        # covers the full color space
+        for index, block in enumerate(color_blocks(rgb888_image)):
+            result = extract_letters(block, letter=letter, threshold=threshold)
+            reference = self.reference(block, tuple(letter), threshold)
+            assert np.array_equal(result, reference), \
+                f"letter={letter} threshold={threshold} block {index}"
 
 
 class TestExtractWhiteLetters:
