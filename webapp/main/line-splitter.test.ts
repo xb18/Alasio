@@ -56,8 +56,23 @@ test("LineSplitter: empty push", () => {
 
 test("LineSplitter: empty line", () => {
   assert.deepEqual(collect(["\n"]), [""]);
+  assert.deepEqual(collect(["\r\n"]), [""]);
 });
 
-test("LineSplitter: CRLF keeps \\r as part of the line content", () => {
-  assert.deepEqual(collect(["a\r\n"]), ["a\r"]);
+test("LineSplitter: CRLF line ending is stripped", () => {
+  // Windows pipes deliver CRLF; the trailing "\r" is part of the line
+  // ending, not the line content.
+  assert.deepEqual(collect(["a\r\n"]), ["a"]);
+  assert.deepEqual(collect(["a\r\n", "b\n"]), ["a", "b"]);
+});
+
+test("LineSplitter: CRLF split across pushes", () => {
+  assert.deepEqual(collect(["hel", "lo\r\n"]), ["hello"]);
+  assert.deepEqual(collect(["a\r", "b\n"]), ["a\rb"]);
+});
+
+test("LineSplitter: carriage return inside the line is kept", () => {
+  // Only the line-ending "\r" of a CRLF line is stripped; a "\r"
+  // anywhere else in the line is raw content.
+  assert.deepEqual(collect(["a\rb\n"]), ["a\rb"]);
 });
