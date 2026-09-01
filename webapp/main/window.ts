@@ -15,11 +15,20 @@ let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 
 export function createWindow(): BrowserWindow {
+  // The window is created hidden in production and revealed once the
+  // renderer painted its first frame (ready-to-show): the window never
+  // appears with an empty/loading frame — whatever route (loading/setup/
+  // app/error) the first paint lands on is already complete. In dev mode
+  // the window shows immediately — the developer drives navigation
+  // manually through the dev route switcher and expects the window right
+  // away.
+  const isDev = !!process.env.VITE_DEV_SERVER_URL;
   mainWindow = new BrowserWindow({
     width: 960,
     height: 660,
     frame: false,
     title: "Alasio",
+    show: isDev,
     // Match the native window background to the display theme (values are
     // the renderer's --background tokens) so no white flash appears while
     // the renderer is still loading. The renderer paints its own themed
@@ -31,6 +40,16 @@ export function createWindow(): BrowserWindow {
       nodeIntegration: false,
     },
   });
+
+  // Reveal the window once the renderer painted its first frame (see the
+  // comment above). Route switches themselves are emitted by the main
+  // process (setRoute -> shared-state:update), so no renderer round-trip
+  // is needed to time the reveal.
+  if (!isDev) {
+    mainWindow.once("ready-to-show", () => {
+      mainWindow?.show();
+    });
+  }
 
   // Load renderer
   if (process.env.VITE_DEV_SERVER_URL) {
