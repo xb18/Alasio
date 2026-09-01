@@ -14,18 +14,32 @@ const ROUTE_TO_PATH: Record<string, string> = {
 // any launch page can be previewed without preparing its real conditions
 // (broken config, missing python, failed backend...). The error payload can
 // be injected through query params, e.g.
-//   /error?errorKey=BackendStartFailed&errorPath=C%3A%5Cfoo
+//   /error?errorKey=ConfigNotFound&errorPath=C%3A%5Cfoo
+// The loading page is previewed through a backendSuccess flag:
+//   /loading?backendSuccess=true  -> startup log, no failure hint
+//   /loading?backendSuccess=false -> startup log + failure hint
 // DevRouteSwitcher.svelte builds such URLs from its popover menu.
-function getDevOverride(): { route: string; errorKey?: string; errorPath?: string } | null {
+export function getDevOverride(): {
+  route: string;
+  errorKey?: string;
+  errorPath?: string;
+  backendSuccess?: boolean;
+} | null {
   if (!import.meta.env.DEV) return null;
   const path = page.route.id;
   const route = Object.keys(ROUTE_TO_PATH).find((key) => ROUTE_TO_PATH[key] === path);
   if (!route) return null;
   const params = page.url.searchParams;
+  const backendSuccess = params.get("backendSuccess");
   return {
     route,
     errorKey: params.get("errorKey") || undefined,
     errorPath: params.get("errorPath") || undefined,
+    // Loading preview flag; ignored on other routes.
+    backendSuccess:
+      route === "loading" && (backendSuccess === "true" || backendSuccess === "false")
+        ? backendSuccess === "true"
+        : undefined,
   };
 }
 
@@ -97,6 +111,12 @@ export function useSharedState() {
     },
     get isFirstTimeSetup() {
       return state?.isFirstTimeSetup || false;
+    },
+    get backendSuccess() {
+      // Dev loading preview: the URL backendSuccess flag decides the value.
+      const backendSuccess = getDevOverride()?.backendSuccess;
+      if (backendSuccess !== undefined) return backendSuccess;
+      return state?.backendSuccess ?? false;
     },
     get errorKey() {
       return getDevOverride()?.errorKey ?? state?.errorKey;

@@ -27,13 +27,6 @@
     "zh-TW": "找不到 gui.py",
     "es-ES": "No se encontró gui.py"
   },
-  "BackendStartFailed": {
-    "en-US": "Failed to start backend",
-    "zh-CN": "后端启动失败",
-    "ja-JP": "バックエンドの起動に失敗しました",
-    "zh-TW": "後端啟動失敗",
-    "es-ES": "Error al iniciar el backend"
-  },
   "UnknownError": {
     "en-US": "Unknown error",
     "zh-CN": "未知错误",
@@ -54,5 +47,12 @@
     "ja-JP": "再試行",
     "zh-TW": "重試",
     "es-ES": "Reintentar"
+  },
+  "BackendStartFailed": {
+    "en-US": "Failed to start backend",
+    "zh-CN": "后端启动失败",
+    "ja-JP": "バックエンドの起動に失敗しました",
+    "zh-TW": "後端啟動失敗",
+    "es-ES": "Error al iniciar el backend"
   }
 }

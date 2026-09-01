@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Languages from "@lucide/svelte/icons/languages";
+  import SunIcon from "@lucide/svelte/icons/sun";
   import Select from "$lib/components/Select.svelte";
   import StartupCard from "$lib/components/StartupCard.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -7,6 +9,7 @@
   import { useSharedState } from "$lib/useSharedState.svelte";
 
   const sharedState = useSharedState();
+  const failed = $derived(!sharedState.backendSuccess);
   // Initial selection mirrors the persistent config values (may be 'system');
   // the UI display language/theme follows the derived values in shared state.
   let selectedLang = $state(sharedState.configLang);
@@ -45,6 +48,8 @@
   async function handleStart() {
     // Values are already saved through the IPC on selection; starting the
     // backend persists them into deploy.yaml through the stdin contract.
+    // On failure the page stays put and shows the hint below (the failure
+    // flag is published through shared state by the main process).
     await window.electronAPI.startBackend();
   }
 </script>
@@ -52,14 +57,20 @@
 <StartupCard title="Alasio" desc={t.Setup.Welcome()}>
   <div class="flex w-full flex-col gap-2">
     <div class="flex items-center justify-between gap-6">
-      <label for="setup-language" class="text-lg">{t.Setup.SelectLanguage()}</label>
+      <label for="setup-language" class="flex items-center gap-3 text-lg">
+        <Languages class="h-4 w-4" strokeWidth={1.5} />
+        {t.Setup.SelectLanguage()}
+      </label>
       <div class="w-60">
         <Select id="setup-language" bind:value={selectedLang} options={languages} onValueChange={selectLang} />
       </div>
     </div>
 
     <div class="flex items-center justify-between gap-6">
-      <label for="setup-theme" class="text-lg">{t.Setup.SelectTheme()}</label>
+      <label for="setup-theme" class="flex items-center gap-3 text-lg">
+        <SunIcon class="h-4 w-4" strokeWidth={1.5} />
+        {t.Setup.SelectTheme()}
+      </label>
       <div class="w-60">
         <Select id="setup-theme" bind:value={selectedTheme} options={themes} onValueChange={selectTheme} />
       </div>
@@ -69,4 +80,7 @@
   <Button onclick={handleStart} size="lg" class="mt-16 h-14 w-48 rounded-xl text-xl font-semibold">
     {t.Setup.Start()}
   </Button>
+  {#if failed}
+    <p class="text-destructive mt-4 text-lg">{t.Error.BackendStartFailed()}</p>
+  {/if}
 </StartupCard>

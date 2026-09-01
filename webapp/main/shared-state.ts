@@ -24,6 +24,14 @@ interface SharedState {
   backendPort: number;
   route: RouteType;
   isFirstTimeSetup: boolean;
+  // Backend startup status (positive wording): false while starting or
+  // after a failed attempt, true once the backend is up. The loading/setup
+  // page shows the failure hint and a retry action instead of navigating
+  // to the error route. Kept in shared state (not a fire-and-forget event)
+  // because a fast startup failure can happen before the renderer mounts;
+  // shared state is read synchronously at renderer start, so the status is
+  // never lost.
+  backendSuccess: boolean;
   // Error page payload: errorKey is an i18n key resolved by the renderer
   // (i18n/Error.json), errorPath is an optional filesystem path shown as
   // supplementary detail.
@@ -40,6 +48,7 @@ const state: SharedState = {
   backendPort: 22267,
   route: "loading",
   isFirstTimeSetup: false,
+  backendSuccess: false,
 };
 
 let mainWindow: BrowserWindow | null = null;
@@ -53,6 +62,20 @@ export function initSharedState(config: { backendPort: number; route: RouteType;
   state.backendPort = config.backendPort;
   state.route = config.route;
   state.isFirstTimeSetup = config.isFirstTimeSetup;
+  state.backendSuccess = false;
+}
+
+/**
+ * Set the backend startup status. Called by startBackend() on every
+ * launch attempt (reset to false at start, set to true when the attempt
+ * succeeds), so the renderer derives its failure hint from this flag.
+ *
+ * Args:
+ *     success (bool): True when the backend started successfully
+ */
+export function setBackendSuccess(success: boolean) {
+  state.backendSuccess = success;
+  notifyRenderer();
 }
 
 export function setRoute(route: RouteType, errorKey?: string, errorPath?: string) {

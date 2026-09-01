@@ -2,10 +2,21 @@ import * as path from "path";
 import { app, ipcMain } from "electron";
 import { IPC_BACKEND_START } from "../shared/ipc";
 import { appState } from "./app-state";
-import { registerTokenInjection, setMainWindow as setBackendWindow, startBackend } from "./backend";
+import {
+  registerTokenInjection,
+  setBackendSuccessCallback,
+  setMainWindow as setBackendWindow,
+  startBackend,
+} from "./backend";
 import { loadConfig } from "./config";
 import { registerAppProtocol } from "./protocol";
-import { initSharedState, setRoute, setMainWindow as setSharedStateWindow, setupSharedStateIPC } from "./shared-state";
+import {
+  initSharedState,
+  setBackendSuccess,
+  setRoute,
+  setMainWindow as setSharedStateWindow,
+  setupSharedStateIPC,
+} from "./shared-state";
 import { createTray, setMainWindow as setTrayWindow } from "./tray";
 import { createWindow, getMainWindow, setupWindowIPC } from "./window";
 
@@ -14,6 +25,14 @@ app.disableHardwareAcceleration();
 app.commandLine.appendSwitch("no-sandbox");
 app.commandLine.appendSwitch("disable-http-cache");
 app.commandLine.appendSwitch("no-proxy-server");
+
+// Wire backend startup status into shared state so the loading/setup
+// pages can show the failure hint. Injected here (instead of backend.ts
+// importing shared-state) to keep the module graph acyclic: shared-state
+// registers an appState.onChange listener at module scope, and a direct
+// import would create the cycle shared-state -> app-state -> backend ->
+// shared-state. By this point every module has finished loading.
+setBackendSuccessCallback(setBackendSuccess);
 
 // Load the deploy config synchronously before app ready: the dpi scaling
 // preference must be applied as a Chromium command-line switch
@@ -112,8 +131,11 @@ if (!gotTheLock) {
         await startBackend(appState.pythonExecutable, appState.rootPath, appState.backendHost, appState.backendPort);
         setRoute("app");
       } catch (err) {
+        // The failure was already published to the renderer through shared
+        // state (setBackendSuccess in startBackend), so the current page
+        // (loading/setup) stays put and shows the failure hint with a retry
+        // action instead of navigating to the error route.
         console.error("Failed to start backend:", err);
-        setRoute("error", "BackendStartFailed");
       }
     });
 
@@ -127,8 +149,10 @@ if (!gotTheLock) {
         await startBackend(appState.pythonExecutable, appState.rootPath, appState.backendHost, appState.backendPort);
         setRoute("app");
       } catch (err) {
+        // Stay on the loading page: the failure is published through shared
+        // state (setBackendSuccess in startBackend), and the loading page
+        // shows the failure hint with a retry button.
         console.error("Failed to start backend:", err);
-        setRoute("error", "BackendStartFailed");
       }
     }
   });

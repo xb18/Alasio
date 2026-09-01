@@ -6,6 +6,27 @@ import { acceptAnnouncement, parseAnnouncement } from "./announcement";
 import { appState } from "./app-state";
 import { LineSplitter } from "./line-splitter";
 
+// Backend startup status callback, wired by main/index.ts to shared state
+// (setBackendSuccess). Injected instead of imported to break a circular
+// import chain (shared-state -> app-state -> backend -> shared-state):
+// rolldown would otherwise emit shared-state before app-state, crashing
+// shared-state's module-body appState.onChange() registration on an
+// undefined appState.
+let onBackendSuccess: ((success: boolean) => void) | null = null;
+
+/**
+ * Wire the backend startup status callback. Called once by main/index.ts
+ * at module scope (after every module finished loading), before any
+ * startBackend() call.
+ *
+ * Args:
+ *     callback (function): Receives true when a launch attempt succeeds,
+ *         false at the start of an attempt (or when one fails)
+ */
+export function setBackendSuccessCallback(callback: (success: boolean) => void) {
+  onBackendSuccess = callback;
+}
+
 export enum ShutdownStage {
   WaitingGraceful = "waiting",
   ForcingGraceful = "forcing",
@@ -103,6 +124,12 @@ export function startBackend(
   backendPort: number,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Every launch attempt starts with a clean status: not yet successful.
+    // The renderer derives its failure hint from shared state, so a retry
+    // clears the previous failure immediately (before the new process
+    // spawns).
+    onBackendSuccess?.(false);
+
     // gui.py forwards sys.argv to the backend supervisor, which passes them
     // down to the hypercorn config parser (--host/--port in create_config).
     // --host/--port must be passed explicitly: command-line args take
@@ -137,8 +164,17 @@ export function startBackend(
         if (child.exitCode === null && child.pid) {
           kill(child.pid, "SIGKILL", () => {});
         }
+        // Publish the startup status through shared state: a fast failure
+        // (spawn error, missing gui.py...) can happen before the renderer
+        // mounted, and shared state is read synchronously at renderer
+        // start, so the failure hint is never lost to an event race.
+        onBackendSuccess?.(false);
         reject(error);
       } else {
+        // Startup succeeded: publish it (the renderer navigates to the
+        // app page right after, but the shared state stays correct even
+        // if the navigation races with the renderer's read).
+        onBackendSuccess?.(true);
         resolve();
       }
     };

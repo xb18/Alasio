@@ -16,13 +16,20 @@
   // not participate in i18n.
   const PAGES = [
     { label: "Setup", path: "/setup" },
-    { label: "Loading", path: "/loading" },
+    // Loading is previewed in two modes: backendSuccess=true (startup log
+    // only) and backendSuccess=false (startup log + failure hint). The
+    // flag goes into the URL and drives the preview through
+    // getDevOverride; the loading page fills mock log lines for it.
+    { label: "Loading (Success)", path: "/loading", backendSuccess: true },
+    { label: "Loading (Failed)", path: "/loading", backendSuccess: false },
     { label: "App", path: "/app" },
   ];
 
-  // Keys mirror i18n/Error.json; "UnknownError" is the fallback when no
+  // Keys the error page resolves (mirrors the handled subset of
+  // i18n/Error.json; backend startup failures are shown by the
+  // loading/setup pages instead); "UnknownError" is the fallback when no
   // errorKey is present.
-  const ERROR_KEYS = ["ConfigNotFound", "PythonNotConfigured", "PythonNotFound", "GuiPyNotFound", "BackendStartFailed"];
+  const ERROR_KEYS = ["ConfigNotFound", "PythonNotConfigured", "PythonNotFound", "GuiPyNotFound"];
 
   // Sample path injected into the error URL so the error page's path
   // section has content to render in dev; a real path only exists when the
@@ -31,16 +38,22 @@
 
   const currentRoute = $derived(page.route.id);
   const currentErrorKey = $derived(page.url.searchParams.get("errorKey"));
+  const currentBackendSuccess = $derived(page.url.searchParams.get("backendSuccess"));
 
-  function navigate(path: string, errorKey?: string) {
-    if (path !== "/error") {
-      goto(path);
-      return;
-    }
+  function navigate(path: string, query?: Record<string, string>) {
     const params = new URLSearchParams();
-    if (errorKey) params.set("errorKey", errorKey);
-    params.set("errorPath", SAMPLE_ERROR_PATH);
-    goto(`/error?${params}`);
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value) params.set(key, value);
+    }
+    const qs = params.toString();
+    goto(qs ? `${path}?${qs}` : path);
+  }
+
+  function isActive(path: string, backendSuccess?: boolean) {
+    if (currentRoute !== path) return false;
+    // Items with a backendSuccess flag only match when the URL carries the
+    // same value.
+    return backendSuccess === undefined ? true : currentBackendSuccess === String(backendSuccess);
   }
 </script>
 
@@ -56,9 +69,13 @@
           class={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
             "w-full justify-start",
-            currentRoute === item.path && "bg-accent text-accent-foreground",
+            isActive(item.path, item.backendSuccess) && "bg-accent text-accent-foreground",
           )}
-          onclick={() => navigate(item.path)}
+          onclick={() =>
+            navigate(
+              item.path,
+              item.backendSuccess !== undefined ? { backendSuccess: String(item.backendSuccess) } : undefined,
+            )}
         >
           {item.label}
         </Popover.Close>
@@ -74,7 +91,7 @@
             "w-full justify-start",
             currentRoute === "/error" && currentErrorKey === key && "bg-accent text-accent-foreground",
           )}
-          onclick={() => navigate("/error", key)}
+          onclick={() => navigate("/error", { errorKey: key, errorPath: SAMPLE_ERROR_PATH })}
         >
           {key}
         </Popover.Close>

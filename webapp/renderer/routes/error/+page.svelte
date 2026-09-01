@@ -12,7 +12,6 @@
     if (key === "PythonNotConfigured") return t.Error.PythonNotConfigured();
     if (key === "PythonNotFound") return t.Error.PythonNotFound();
     if (key === "GuiPyNotFound") return t.Error.GuiPyNotFound();
-    if (key === "BackendStartFailed") return t.Error.BackendStartFailed();
     return t.Error.UnknownError();
   });
 </script>
@@ -35,7 +34,7 @@
     </Card.Content>
 
     <Card.Footer>
-      <Button onclick={() => location.reload()} class="w-full h-10 font-semibold text-lg">
+      <Button onclick={() => location.reload()} class="h-10 w-full text-lg font-semibold">
         {t.Error.Retry()}
       </Button>
     </Card.Footer>
