@@ -22,7 +22,8 @@ dependencies = [
     # just to ensure not too old
     # 0.23.0 is the last version that support python3.8
     "zstandard>=0.23.0",
-    "PyYAML",
+    # 6.x releases continue to support Python 3.8
+    "PyYAML>=6.0",
     "httpx",
     "psutil",
     # alasio/log
@@ -30,7 +31,8 @@ dependencies = [
     # 14.1.0 is the minimum version to have exceptiongroup support
     # see alasio/ext/backport/__init__.py patch_rich_traceback_extract()
     "rich>=14.1.0,<=15.0.0",
-    "colorama",
+    # 0.4.6 is the latest version, colorama is unchanged since 2022
+    "colorama>=0.4.6",
 ]
 
 [project.optional-dependencies]
@@ -39,15 +41,21 @@ image = [
     "opencv-python-headless",
 ]
 backend = [
+    # 0.17.3 is the last version that support python3.8
     "hypercorn>=0.17.3",
-    "trio",
-    "starlette>=0.19.0",
-    "PyJWT",
+    # 0.27.0 is the last version that support python3.8
+    "trio>=0.27.0",
+    # 0.44.0 is the last version that support python3.8
+    "starlette>=0.44.0",
+    # 2.9.0 is the last version that support python3.8
+    "PyJWT>=2.9.0",
 ]
 test = [
     # pytest 7 added MonkeyPatch, and pytest 7 is the last version that supports py3.7
-    "pytest>=7.4.4",
-    "pytest-trio",
+    # 8.3.4 is the last version that support python3.8
+    "pytest>=8.3.4",
+    # 0.8.0 is the latest version, pytest-trio is unchanged since 2022
+    "pytest-trio>=0.8.0",
     # just to ensure not too old
     "ruff>=0.16.0",
     # alasio/codegen/ruff/ruff_format.py requires isort>=5.2.0
