@@ -153,8 +153,9 @@ class TestSpaPageServer:
         csp = headers.get('content-security-policy', '')
         # the meta content is served verbatim ...
         assert csp.startswith("default-src 'self'; script-src 'self' 'sha256-abc='")
-        # ... extended with frame-ancestors (the meta tag ignores it)
-        assert "frame-ancestors 'self' app://bundle" in csp
+        # ... extended with frame-ancestors (the meta tag ignores it): the
+        # electron host (production) and local loopback dev hosts
+        assert "frame-ancestors 'self' app://bundle http://127.0.0.1:* http://localhost:*" in csp
 
     @pytest.mark.trio
     async def test_html_without_meta_uses_fallback(self, fs):

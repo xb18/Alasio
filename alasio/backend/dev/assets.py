@@ -16,7 +16,8 @@ from alasio.logger import logger
 # header then mirrors that meta so the browser enforces their
 # intersection). frame-ancestors can only be set through a response
 # header (the meta tag ignores it): it allows the electron host
-# (app://bundle) to embed the page.
+# (app://bundle, production) and local loopback dev hosts (vite dev
+# server, any port) to embed the page.
 CSP = (
     "default-src 'self'; "
     "script-src 'self' 'sha256-/c574zxOUzzzs52yM/ATmZ7eBGoJ3nHgHTc8O5t7jRw='; "
@@ -28,7 +29,7 @@ CSP = (
     "base-uri 'self'; "
     "form-action 'self'; "
     "frame-src 'self'; "
-    "frame-ancestors 'self' app://bundle"
+    "frame-ancestors 'self' app://bundle http://127.0.0.1:* http://localhost:*"
 )
 
 
@@ -226,6 +227,6 @@ class SPANoCacheStaticFiles(SPAStaticFiles, NoCacheStaticFiles):
         csp = _html_meta_csp(full_path, stat_result)
         if csp:
             if 'frame-ancestors' not in csp:
-                csp = f'{csp}; frame-ancestors \'self\' app://bundle'
+                csp = f"{csp}; frame-ancestors 'self' app://bundle http://127.0.0.1:* http://localhost:*"
             return csp
         return CSP
