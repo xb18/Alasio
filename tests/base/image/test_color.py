@@ -2,7 +2,9 @@ import cv2
 import numpy as np
 import pytest
 
-from alasio.base.image.color import rgb2luma, rgb565_to_rgb888
+from alasio.base.image.color import (
+    color_similarity_2d, extract_letters, extract_white_letters, rgb2luma, rgb565_to_rgb888
+)
 
 
 def create_rgb888():
@@ -56,24 +58,17 @@ def rgb565_to_rgb888_reference(arr):
     return cv2.merge([r, g, b])
 
 
-class TestColor:
-    """Test suite for rgb2luma functions"""
+@pytest.fixture(scope="module")
+def rgb888_image():
+    """
+    Fixture to create the RGB888 test image once for all tests.
+    Contains every possible RGB888 color, covering all input cases.
+    """
+    return create_rgb888()
 
-    @pytest.fixture(scope="class")
-    def rgb888_image(self):
-        """
-        Fixture to create the RGB888 test image once for all tests in this class.
-        This contains all possible RGB888 colors in a 4096x4096 image.
-        """
-        return create_rgb888()
 
-    @pytest.fixture(scope="class")
-    def rgb565_image(self):
-        """
-        Fixture to create the RGB565 test image once for all tests in this class.
-        This contains all possible RGB565 colors (0-65535) in a 256x256 image.
-        """
-        return create_rgb565()
+class TestRgb2Luma:
+    """Tests for rgb2luma"""
 
     def test_rgb2luma(self, rgb888_image):
         """
@@ -106,6 +101,40 @@ class TestColor:
                 f"Tolerance: atol=1"
             )
 
+
+class TestRgb565ToRgb888:
+    """Tests for rgb565_to_rgb888"""
+
+    @staticmethod
+    def reference(arr):
+        """
+        Simple reference version from the comments in color.py
+
+        Args:
+            arr (np.ndarray): RGB565 image, uint16
+
+        Returns:
+            np.ndarray: RGB888 image, uint8
+        """
+        r = (arr & 0b1111100000000000) >> (11 - 3)
+        g = (arr & 0b0000011111100000) >> (5 - 2)
+        b = (arr & 0b0000000000011111) << 3
+        r |= (r & 0b11100000) >> 5
+        g |= (g & 0b11000000) >> 6
+        b |= (b & 0b11100000) >> 5
+        r = r.astype(np.uint8)
+        g = g.astype(np.uint8)
+        b = b.astype(np.uint8)
+        return cv2.merge([r, g, b])
+
+    @pytest.fixture(scope="class")
+    def rgb565_image(self):
+        """
+        Fixture to create the RGB565 test image once for all tests in this class.
+        This contains all possible RGB565 colors (0-65535) in a 256x256 image.
+        """
+        return create_rgb565()
+
     def test_rgb565_to_rgb888(self, rgb565_image):
         """
         Test rgb565_to_rgb888 by comparing the optimized implementation
@@ -113,7 +142,7 @@ class TestColor:
         """
         # Get result from the optimized implementation
         result_fast = rgb565_to_rgb888(rgb565_image)
-        result_reference = rgb565_to_rgb888_reference(rgb565_image.copy())
+        result_reference = self.reference(rgb565_image.copy())
 
         # Test that both functions return the same output shape
         assert result_fast.shape == result_reference.shape, \
@@ -139,3 +168,101 @@ class TestColor:
                 f"Mean difference: {mean_diff:.4f}\n"
                 f"Tolerance: atol=1"
             )
+
+
+class TestColorSimilarity2d:
+    """color_similarity_2d must match the unoptimized reference algorithm"""
+
+    @staticmethod
+    def reference(image, color):
+        """
+        Unoptimized reference algorithm, copied from the comments in color.py
+
+        Args:
+            image (np.ndarray): 2D BGR image
+            color (tuple): (r, g, b)
+
+        Returns:
+            np.ndarray: uint8
+        """
+        r, g, b = cv2.split(cv2.subtract(image, (*color, 0)))
+        positive = cv2.max(cv2.max(r, g), b)
+        r, g, b = cv2.split(cv2.subtract((*color, 0), image))
+        negative = cv2.max(cv2.max(r, g), b)
+        return cv2.subtract(255, cv2.add(positive, negative))
+
+    @pytest.mark.parametrize("color", [
+        (128, 100, 200),
+        (0, 0, 0),
+        (255, 255, 255),
+        (10, 245, 3),
+    ])
+    def test_matches_reference(self, rgb888_image, color):
+        result = color_similarity_2d(rgb888_image, color)
+        reference = self.reference(rgb888_image, color)
+        assert np.array_equal(result, reference), f"color={color}"
+
+
+class TestExtractLetters:
+    """extract_letters must match the unoptimized reference algorithm"""
+
+    @staticmethod
+    def reference(image, letter, threshold):
+        """
+        Unoptimized reference algorithm, copied from the comments in color.py
+
+        Args:
+            image (np.ndarray): 2D BGR image
+            letter (tuple): Letter RGB.
+            threshold (int):
+
+        Returns:
+            np.ndarray: uint8
+        """
+        r, g, b = cv2.split(cv2.subtract(image, (*letter, 0)))
+        positive = cv2.max(cv2.max(r, g), b)
+        r, g, b = cv2.split(cv2.subtract((*letter, 0), image))
+        negative = cv2.max(cv2.max(r, g), b)
+        return cv2.multiply(cv2.add(positive, negative), 255.0 / threshold)
+
+    @pytest.mark.parametrize("letter", [
+        (255, 255, 255),
+        [255, 255, 255],
+        (100, 150, 200),
+        (0, 0, 0),
+    ])
+    @pytest.mark.parametrize("threshold", [64, 128, 255])
+    def test_matches_reference(self, rgb888_image, letter, threshold):
+        result = extract_letters(rgb888_image, letter=letter, threshold=threshold)
+        reference = self.reference(rgb888_image, tuple(letter), threshold)
+        assert np.array_equal(result, reference), \
+            f"letter={letter} threshold={threshold}"
+
+
+class TestExtractWhiteLetters:
+    """extract_white_letters must match the unoptimized reference algorithm"""
+
+    @staticmethod
+    def reference(image, threshold):
+        """
+        Unoptimized reference algorithm, copied from the comments in color.py
+
+        Args:
+            image (np.ndarray): 2D BGR image
+            threshold (int):
+
+        Returns:
+            np.ndarray: uint8
+        """
+        r, g, b = cv2.split(cv2.subtract((255, 255, 255, 0), image))
+        minimum = cv2.min(cv2.min(r, g), b)
+        maximum = cv2.max(cv2.max(r, g), b)
+        maximum = cv2.multiply(maximum, 0.5)
+        minimum = cv2.multiply(minimum, 0.5)
+        return cv2.multiply(cv2.add(maximum, cv2.subtract(maximum, minimum)), 255.0 / threshold)
+
+    @pytest.mark.parametrize("threshold", [64, 128, 255])
+    def test_matches_reference(self, rgb888_image, threshold):
+        result = extract_white_letters(rgb888_image, threshold=threshold)
+        reference = self.reference(rgb888_image, threshold)
+        assert np.array_equal(result, reference), f"threshold={threshold}"

@@ -294,7 +294,7 @@ def color_similarity_2d(image, color):
     cv2.max(r, b, dst=r)
     negative = r
     cv2.add(positive, negative, dst=positive)
-    cv2.subtract(255, positive, dst=positive)
+    cv2.bitwise_not(positive, dst=positive)
     return positive
 
 
@@ -309,6 +309,15 @@ def extract_letters(image, letter=(255, 255, 255), threshold=128):
     Returns:
         np.ndarray: Shape (height, width)
     """
+    if tuple(letter) == (255, 255, 255):
+        # MAX of the inverted image == inverted MIN of the image
+        r, g, b = cv2.split(image)
+        cv2.min(r, g, dst=r)
+        cv2.min(r, b, dst=r)
+        cv2.bitwise_not(r, dst=r)
+        if threshold != 255:
+            cv2.convertScaleAbs(r, alpha=255.0 / threshold, dst=r)
+        return r
     # r, g, b = cv2.split(cv2.subtract(image, (*letter, 0)))
     # positive = cv2.max(cv2.max(r, g), b)
     # r, g, b = cv2.split(cv2.subtract((*letter, 0), image))
@@ -324,9 +333,10 @@ def extract_letters(image, letter=(255, 255, 255), threshold=128):
     cv2.max(r, g, dst=r)
     cv2.max(r, b, dst=r)
     negative = r
-    cv2.add(positive, negative, dst=positive)
     if threshold != 255:
-        cv2.convertScaleAbs(positive, alpha=255.0 / threshold, dst=positive)
+        cv2.addWeighted(positive, 255.0 / threshold, negative, 255.0 / threshold, 0, dst=positive)
+    else:
+        cv2.add(positive, negative, dst=positive)
     return positive
 
 
@@ -341,20 +351,26 @@ def extract_white_letters(image, threshold=128):
     Returns:
         np.ndarray: Shape (height, width)
     """
+    # r, g, b = cv2.split(cv2.subtract((255, 255, 255, 0), image))
     # minimum = cv2.min(cv2.min(r, g), b)
     # maximum = cv2.max(cv2.max(r, g), b)
+    # maximum = cv2.multiply(maximum, 0.5)
+    # minimum = cv2.multiply(minimum, 0.5)
     # return cv2.multiply(cv2.add(maximum, cv2.subtract(maximum, minimum)), 255.0 / threshold)
-    r, g, b = cv2.split(cv2.subtract((255, 255, 255, 0), image))
+    r, g, b = cv2.split(image)
     maximum = cv2.max(r, g)
     cv2.min(r, g, dst=r)
     cv2.max(maximum, b, dst=maximum)
     cv2.min(r, b, dst=r)
-    # minimum = r
+    # r = MIN(r, g, b), maximum = MAX(r, g, b) in the original domain
+    cv2.bitwise_not(r, dst=r)
+    cv2.bitwise_not(maximum, dst=maximum)
 
-    cv2.convertScaleAbs(maximum, alpha=0.5, dst=maximum)
     cv2.convertScaleAbs(r, alpha=0.5, dst=r)
-    cv2.subtract(maximum, r, dst=r)
-    cv2.add(maximum, r, dst=maximum)
+    cv2.convertScaleAbs(maximum, alpha=0.5, dst=maximum)
+    cv2.subtract(r, maximum, dst=maximum)
     if threshold != 255:
-        cv2.convertScaleAbs(maximum, alpha=255.0 / threshold, dst=maximum)
-    return maximum
+        cv2.addWeighted(r, 255.0 / threshold, maximum, 255.0 / threshold, 0, dst=r)
+    else:
+        cv2.add(r, maximum, dst=r)
+    return r
