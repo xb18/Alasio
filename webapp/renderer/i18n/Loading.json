@@ -1,0 +1,16 @@
+{
+  "StartingBackend": {
+    "en-US": "Starting backend...",
+    "zh-CN": "正在启动后端...",
+    "ja-JP": "バックエンドを起動しています...",
+    "zh-TW": "正在啟動後端...",
+    "es-ES": "Iniciando backend..."
+  },
+  "BackendStartFailed": {
+    "en-US": "Failed to start backend",
+    "zh-CN": "后端启动失败",
+    "ja-JP": "バックエンドの起動に失敗しました",
+    "zh-TW": "後端啟動失敗",
+    "es-ES": "Error al iniciar el backend"
+  }
+}

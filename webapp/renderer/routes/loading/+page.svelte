@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import StartupCard from "$lib/components/StartupCard.svelte";
   import { Button } from "$lib/components/ui/button";
+  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { t } from "$lib/i18n";
   import { getDevOverride, useSharedState } from "$lib/useSharedState.svelte";
 
@@ -10,12 +11,14 @@
   const failed = $derived(!sharedState.backendSuccess);
 
   // Dev preview mock logs, in chronological order (oldest first). The page
-  // stores lines newest-first for the column-reverse layout, so the list is
-  // reversed when filling. Previewed through DevRouteSwitcher URLs
-  // (/loading?backendSuccess=true|false). Guarded by import.meta.env.DEV
-  // so the build folds them to empty arrays and the mock data never
-  // reaches production bundles (the preview path itself is already dead in
-  // production: getDevOverride returns null there).
+  // stores lines newest-first for the column-reverse layout, so the mock
+  // is streamed in chronological order (each line unshifted one by one,
+  // see fillDevLogs) and the newest line always lands at the bottom edge.
+  // Previewed through DevRouteSwitcher URLs (/loading?backendSuccess=true|false).
+  // Guarded by import.meta.env.DEV so the build folds them to empty arrays
+  // and the mock data never reaches production bundles (the preview path
+  // itself is already dead in production: getDevOverride returns null
+  // there).
   // The filler prefix (meaningless lines) makes the log area overflow so
   // the preview shows the scrolling behavior.
   const DEV_LOG_FILLER = import.meta.env.DEV
@@ -44,13 +47,59 @@
       ]
     : [];
 
-  // Log lines are prepended and the container lays them out in column
-  // reverse, so the newest line sits at the visual bottom. The scroll
-  // origin of a column-reverse container is its visual bottom (scrollTop
-  // 0), which keeps the newest line pinned at the bottom edge while older
-  // lines are pushed upwards as new ones arrive.
+  // Log lines are prepended (newest first) and the column-reverse layout
+  // puts the first DOM child — the newest line — at the container's
+  // bottom edge, so the newest line is always the last row of the log.
+  // The flex container is a plain block child of the scroll viewport, so
+  // its content overflows the viewport downward: the scroll range starts
+  // at the oldest line (scrollTop 0) and scrolling to the bottom
+  // (scrollTop = scrollHeight) pins the newest line at the bottom edge
+  // while older lines are pushed upwards as new ones arrive.
   let logs = $state<string[]>([]);
   let retrying = $state(false);
+  let logViewport: HTMLDivElement | null = $state(null);
+
+  // Auto-scroll to the newest line whenever the log grows: the newest
+  // line is the last row of the content (see above), so just scroll the
+  // viewport to the bottom.
+  $effect(() => {
+    if (logs.length > 0 && logViewport) {
+      logViewport.scrollTop = logViewport.scrollHeight;
+    }
+  });
+
+  // Dev preview fill generation. Bumping it cancels any in-flight fill
+  // loop (see fillDevLogs): used when the preview switches between
+  // success/failed, when retry starts a new fill, or when the component
+  // unmounts mid-fill, so stale timers never keep appending lines.
+  let devFillGeneration = 0;
+  // Interval between two mock log lines while filling (0.05s), so the dev
+  // preview log streams in line by line like a real backend log stream.
+  const DEV_LOG_INTERVAL_MS = 50;
+
+  function devLogDelay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // Dev preview: append mock log lines one by one, DEV_LOG_INTERVAL_MS
+  // apart, so the preview animates like a real backend log stream. Each
+  // unshift also re-triggers the auto-scroll effect above, pinning the
+  // newest line at the bottom edge while older lines are pushed upwards.
+  // Must be called outside a tracking context (see the $effect below), or
+  // wrapped in untrack: the first unshift reads `logs` through the $state
+  // proxy, and an effect that reads the state it mutates re-runs forever
+  // (svelte throws effect_update_depth_exceeded).
+  async function fillDevLogs(lines: string[]) {
+    const generation = ++devFillGeneration;
+    logs = [];
+    for (const line of lines) {
+      // A newer fill (preview switch, retry or unmount) superseded this
+      // one; stop inserting to keep the log state consistent.
+      if (generation !== devFillGeneration) return;
+      logs.unshift(line);
+      await devLogDelay(DEV_LOG_INTERVAL_MS);
+    }
+  }
 
   // Dev preview: fill the mock log for the URL backendSuccess flag, and
   // re-fill whenever the preview switches between success/failed
@@ -59,7 +108,17 @@
   $effect(() => {
     const override = getDevOverride();
     if (override?.route !== "loading" || override.backendSuccess === undefined) return;
-    logs = [...(override.backendSuccess ? DEV_LOGS : DEV_LOGS_FAILED)].reverse();
+    // untrack: the fill mutates `logs`; without it the first unshift would
+    // register `logs` as a dependency of this effect and every inserted
+    // line would re-trigger it, restarting the fill forever.
+    untrack(() => {
+      void fillDevLogs(override.backendSuccess ? DEV_LOGS : DEV_LOGS_FAILED);
+    });
+    // Cancel the in-flight fill when this effect re-runs (the preview
+    // switched) or when the component unmounts mid-fill.
+    return () => {
+      devFillGeneration++;
+    };
   });
 
   onMount(() => {
@@ -84,7 +143,7 @@
     retrying = true;
     const override = getDevOverride();
     if (override?.route === "loading" && override.backendSuccess !== undefined) {
-      logs = [...(override.backendSuccess ? DEV_LOGS : DEV_LOGS_FAILED)].reverse();
+      void fillDevLogs(override.backendSuccess ? DEV_LOGS : DEV_LOGS_FAILED);
       retrying = false;
       return;
     }
@@ -98,22 +157,29 @@
 
 <StartupCard title="Alasio" desc={t.Loading.StartingBackend()} class="">
   <div class="flex h-full w-full flex-col">
-    <!-- Log area: newest line at the bottom, older lines pushed upwards -->
-    <div class="min-h-0 w-full flex-1">
-      <div class="flex h-full w-full flex-col-reverse overflow-y-auto border-t border-b font-mono text-xs">
+    <!-- Log area: newest line at the bottom, older lines pushed upwards.
+         Styling follows the frontend overview LogDisplay/LogData: card
+         surface, scroll area, and a per-line hover highlight. The backend
+         log has no level/time, so only the shared skeleton is kept. -->
+    <ScrollArea bind:viewportRef={logViewport} type="always" class="bg-card min-h-0 w-full flex-1 border-t border-b">
+      <div class="flex flex-col-reverse">
         {#each logs as log}
-          <div class="text-muted-foreground whitespace-pre-wrap">{log}</div>
+          <div
+            class="hover:bg-muted/50 hover:shadow-muted-foreground/15 block px-1 py-0.25 font-mono text-xs hover:shadow-[inset_0_1px_0_0_currentColor,inset_0_-1px_0_0_currentColor]"
+          >
+            <pre class="text-muted-foreground m-0 break-all whitespace-pre-wrap">{log}</pre>
+          </div>
         {/each}
       </div>
-    </div>
+    </ScrollArea>
     <!-- Placeholder below the log: blank while starting (or after a
          successful start, when the page has already navigated away);
          on startup failure it shows the hint and a retry button. -->
     <div class="mt-2 flex h-8 w-full shrink-0 items-center justify-end gap-4">
       {#if failed}
         <div class="flex items-center gap-2">
-          <TriangleAlert class="text-destructive size-5" />
-          <p class="ml-0 text-lg">{t.Error.BackendStartFailed()}</p>
+          <TriangleAlert class="text-destructive size-4" />
+          <p class="ml-0">{t.Loading.BackendStartFailed()}</p>
         </div>
         <Button onclick={retry} disabled={retrying} class="h-8 w-16 font-semibold">
           {t.Error.Retry()}
