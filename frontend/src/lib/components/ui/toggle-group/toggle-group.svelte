@@ -33,7 +33,9 @@
 		orientation = "horizontal",
 		variant = "default",
 		// MODIFIED: If type is "single", toggle group must select one item
-		// no empty selection, no multi selection
+		// no empty selection, no multi selection. Cast to never when passing
+		// down: destructuring the discriminant key `type` out of the RootProps
+		// union makes svelte-check fail with "union type too complex".
 		type = "single",
 		...restProps
 	}: ToggleGroupPrimitive.RootProps &
@@ -93,7 +95,7 @@ get along, so we shut typescript up by casting `value` to `never`.
 	bind:value={value as never}
 	bind:ref
 	{orientation}
-	{type}
+	type={type as never}
 	data-slot="toggle-group"
 	data-variant={variant}
 	data-size={size}

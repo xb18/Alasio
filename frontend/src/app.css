@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn-svelte/tailwind.css";
 
 /* 
   If your project still needs a traditional config file, don't worry.
